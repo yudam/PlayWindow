@@ -16,7 +16,11 @@ class WindowApp : Application() {
 
 
     companion object {
+
+        const val TAG = "WindowApp"
+
         private var mWindowApp: WindowApp? = null
+
         fun instance(): WindowApp {
             return mWindowApp!!
         }

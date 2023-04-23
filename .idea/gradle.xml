@@ -1,16 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleHome" value="$USER_HOME$/Downloads/gradle-4.4" />
+        <option name="gradleJvm" value="11" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/av1" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/cast" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/cronet" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/ffmpeg" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/flac" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/ima" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/leanback" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/media2" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/mediasession" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/okhttp" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/opus" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/rtmp" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/vp9" />
+            <option value="$PROJECT_DIR$/exoplayer/extensions/workmanager" />
+            <option value="$PROJECT_DIR$/exoplayer/library/all" />
+            <option value="$PROJECT_DIR$/exoplayer/library/common" />
+            <option value="$PROJECT_DIR$/exoplayer/library/core" />
+            <option value="$PROJECT_DIR$/exoplayer/library/dash" />
+            <option value="$PROJECT_DIR$/exoplayer/library/database" />
+            <option value="$PROJECT_DIR$/exoplayer/library/datasource" />
+            <option value="$PROJECT_DIR$/exoplayer/library/decoder" />
+            <option value="$PROJECT_DIR$/exoplayer/library/effect" />
+            <option value="$PROJECT_DIR$/exoplayer/library/extractor" />
+            <option value="$PROJECT_DIR$/exoplayer/library/hls" />
+            <option value="$PROJECT_DIR$/exoplayer/library/rtsp" />
+            <option value="$PROJECT_DIR$/exoplayer/library/smoothstreaming" />
+            <option value="$PROJECT_DIR$/exoplayer/library/transformer" />
+            <option value="$PROJECT_DIR$/exoplayer/library/ui" />
+            <option value="$PROJECT_DIR$/exoplayer/robolectricutils" />
+            <option value="$PROJECT_DIR$/exoplayer/testdata" />
+            <option value="$PROJECT_DIR$/exoplayer/testutils" />
           </set>
         </option>
       </GradleProjectSettings>

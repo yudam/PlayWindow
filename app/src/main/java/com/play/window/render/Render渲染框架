@@ -1,0 +1,13 @@
+
+1. TextureProgram ： 渲染操作 ，接受参数，执行绘制
+
+
+
+渲染模块开发过程中的问题：
+
+1. 在创建IWindowImpI中创建EGL环境后，创建纹理ID并创建SurfaceTexture，设置到ExoPlayer中会抛出异常，
+提示MediaCodec的configure方法报错误，经过研究发现并总结问题：
+   在方法中创建的SurfaceTexture对象必须交给方法外部一个引用，否则SurfaceTexture应该是被回收了，导致
+   不可用。
+
+2. SurfaceTexture中绑定的纹理ID一定要是OES纹理
