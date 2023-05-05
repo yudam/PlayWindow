@@ -2,6 +2,7 @@ package com.play.window.render
 
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
+import android.opengl.GLES30
 import android.util.Log
 import com.play.window.WindowApp
 import com.play.window.render.gles.GlUtil
@@ -39,9 +40,9 @@ class TextureProgram(vertex: String, fragment: String) {
         mainTexture = GLES20.glGetUniformLocation(mProgram, "uTexture1")
     }
 
-    private fun draw() {
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        GLES20.glClearColor(0f, 0f, 0f, 1f)
+    private fun draw(isOES: Boolean = true) {
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
         GLES20.glUseProgram(mProgram)
         GlUtil.checkGlError("glUseProgram:")
         setVertexAttribPointer(mPosition, vertexArray)
@@ -52,7 +53,11 @@ class TextureProgram(vertex: String, fragment: String) {
         GlUtil.checkGlError("setUniformMatrix4fv:")
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GlUtil.checkGlError("glActiveTexture:")
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tetxureId)
+        if(isOES){
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tetxureId)
+        } else {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tetxureId)
+        }
         GlUtil.checkGlError("glBindTexture:"+tetxureId)
         setUniform1i(mainTexture, 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
@@ -65,6 +70,7 @@ class TextureProgram(vertex: String, fragment: String) {
         GlUtil.checkGlError("glDrawArrays mTextCoord:")
         GLES20.glUseProgram(0)
         GlUtil.checkGlError("glUseProgram0:")
+        GLES30.glDisable(GLES20.GL_BLEND)
     }
 
 
@@ -73,15 +79,15 @@ class TextureProgram(vertex: String, fragment: String) {
      * @param fragment 纹理坐标
      *
      */
-    fun render(vertex: FloatArray, fragment: FloatArray, textureId: Int, matrix: FloatArray) {
+    fun render(vertex: FloatArray, fragment: FloatArray, textureId: Int, matrix: FloatArray,isOES:Boolean = true) {
 
-        Log.i(WindowApp.TAG, "vertext: "+vertex.toString())
-        Log.i(WindowApp.TAG, "fragment: "+fragment.toString())
+//        Log.i(WindowApp.TAG, "vertext: "+vertex.toList())
+//        Log.i(WindowApp.TAG, "fragment: "+fragment.toList())
         this.vertexArray = vertex
         this.fragmentArray = fragment
         this.tetxureId = textureId
         this.mvpMatrix = matrix
-        draw()
+        draw(isOES)
     }
 
 

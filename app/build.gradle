@@ -77,9 +77,14 @@ android {
             version '3.18.1'
         }
     }
+
+    ndkVersion '17.1.4828580'
+    
     buildFeatures {
         viewBinding true
     }
+
+
 }
 
 dependencies {

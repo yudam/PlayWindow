@@ -12,6 +12,7 @@ class WindowApp : Application() {
     override fun onCreate() {
         super.onCreate()
         mWindowApp = this
+        BaseNative.loadLibrary()
     }
 
 

@@ -1,5 +1,6 @@
 package com.play.window
 
+import android.graphics.BitmapFactory
 import android.graphics.SurfaceTexture
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
@@ -43,8 +44,6 @@ class WindowPlayActivity : AppCompatActivity() {
                 Log.i(WindowApp.TAG, "onSurfaceTextureAvailable: ")
                 val rect = GLRect(width / 2f, height / 2f, width.toFloat(), height.toFloat(),width.toFloat(),height.toFloat())
                 initPlayer(surface, rect)
-                //val player = VideoPlayer(url, Surface(surface))
-
             }
 
             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
@@ -61,7 +60,13 @@ class WindowPlayActivity : AppCompatActivity() {
 
         }
 
-       // initGL()
+        binding.btnEnd.setOnClickListener {
+          val bitmap =   BitmapFactory.decodeResource(resources,R.mipmap.ic_1)
+            val width = binding.playVideo.width
+            val height = binding.playVideo.height
+            val rect = GLRect(width / 2f, height / 2f, 200f, 200f,width.toFloat(),height.toFloat())
+            window?.addBitmap(bitmap,rect)
+        }
     }
 
     override fun onStart() {
@@ -84,10 +89,6 @@ class WindowPlayActivity : AppCompatActivity() {
         window = IWindowImpl()
         val info = DisplayInfo(url,rect,surfaceTexture,30)
         window?.playVideo(info)
-
-
-      //  VideoPlayer(url,Surface(window!!.getSurfaceTexture()))
-       // TestCode(url)
     }
 
 }

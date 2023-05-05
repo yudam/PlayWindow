@@ -65,6 +65,7 @@ add_library( # Sets the name of the library.
 
         # Provides a relative path to your source file(s).
         native-lib.cpp
+        RegisterImpl.cpp
         # 要编译的c/c++文件
         ${FILE_C}
         )

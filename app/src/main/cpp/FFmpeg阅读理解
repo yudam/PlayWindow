@@ -1,0 +1,37 @@
+
+1. AVFormatContext： 对于容器和媒体文件层次的抽象，比如特定格式的媒体文件：MP4、flv、mov等
+2. AVStream：
+3. AVCodecContext、AVCodec:
+4. AVPacket、AVFrame：
+5. AVFilter:
+
+
+FFmpeg中知识点：
+
+1. ffmpeg中时间基是时间戳的单位，时间戳 * 时间基 可以得到实际的时刻（以秒为单位）。如果一个视频帧的 dts 是 40，
+   pts 是 160，其 time_base 是 1/1000 秒，那么可以计算出此视频帧的解码时刻是 40 毫秒(40/1000)，显示时刻是
+   160 毫秒(160/1000)。FFmpeg 中时间戳(pts/dts)的类型是 int64_t 类型。
+
+2. ffmpeg中包含两个内部时间基 AV_TIME_BASE 和它的分数形式 AV_TIME_BASE_Q，例如通过：时间戳*时间基 * AV_TIME_BASE
+   计算出来的时间是微秒，也可以是：时间戳*时间基 / AV_TIME_BASE_Q。
+
+3. ffmpeg中通过av_q2d函数可以将时间基 AVRational转换为double形式，单位为秒，和未转化之前没什么区别。
+
+4. av_rescale_q 函数用于将时间戳从一种时间基转换为另外一种时间基，原理就是先 时间戳 * 时间基 计算出具体的时间，然后
+   通过计算出来的时间在除以另外一种时间计算出时间戳。
+
+4. av_packet_rescale_ts 函数用于将AVPacket中各种时间从一种时间基转换成另外一种时间基。
+
+5. AVStream中的time_base是AVPacket中pts和dts的单位。在输入流中通过avformat_find_stream_info函数可以获取
+   每一路流的time_base。打开输出文件后，调用 avformat_write_header()可根据输出文件封装格式确定每个流的
+   time_base 并写入输出文件中。flv 封装格式的 time_base 为{1,1000}，ts 封装格式的 time_base 为{1,90000}。
+
+6. 在视频解码过程中，我们不使用 AVCodecContext.time_base，而用帧率倒数作时间基，在视频编码过程中，
+   我们将 AVCodecContext.time_base 设置为帧率的倒数。
+
+
+音视频小知识点：
+
+1。 不包含B帧的视频，其每一帧的PTS和DTS都相同，B帧属于双向预测帧，需要其前和后的帧，所以其解码时间和显示时间不一致。
+
+
