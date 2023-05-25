@@ -79,13 +79,9 @@ class WindowRender() {
 
 
     fun copyPreViewSurface(surfaceTexture: SurfaceTexture) {
-
         val preInfo = surfaceMap[previewSurfaceId]?.getInfo()
-
-        Log.i(WindowApp.TAG, "preInfo: "+preInfo.toString())
         if (preInfo != null) {
             val data = preInfo.copyInfo(surfaceTexture)
-            Log.i(WindowApp.TAG, "data: "+data.toString())
             val drawSurface = DrawSurface(mEglCore?.sharedContext)
             drawSurface.addDisplaySurface(data)
         }

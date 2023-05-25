@@ -42,6 +42,7 @@ void H264Encoder::startPublish(const char *url, int width, int height) {
     avCodecContext->max_b_frames = 0;
     avCodecContext->qmin = 10;
     avCodecContext->qmax = 50;
+    // fps设置过大会导致卡顿，实测20没问题，30就会隔几秒卡顿一次
     avCodecContext->time_base = AVRational{1, fps};
     avCodecContext->framerate = AVRational{fps, 1};
     avCodecContext->level = 41;
@@ -132,6 +133,10 @@ void H264Encoder::encoderBuffer(uint8_t *nv21Buffer, int len) {
     if (!isInit) return;
     convertToI420(nv21Buffer);
 
+    /**
+     * 以index作为时间戳，index值得是相机返回过来的帧的下标
+     */
+    avFrame->pts = index;
     int ret = avcodec_send_frame(avCodecContext, avFrame);
     if (ret < 0) {
         logi("avcodec_send_frame");
@@ -141,18 +146,17 @@ void H264Encoder::encoderBuffer(uint8_t *nv21Buffer, int len) {
     while (!ret) {
         ret = avcodec_receive_packet(avCodecContext, &avPacket);
         if (ret < 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            logi("avcodec_receive_packet");
             return;
         }
 
         /**
-         * 时间戳还是要优化，会有卡顿，掉帧的问题
+         * 将编码的时间基对应的pts 转换为flv对应的时间基的时间戳，avStream中时间基础在写入头文件后
+         * 就会变成flv对应的时间基{1,1000},但是编码其的时间基还是{1,20}，所以需要转换时间戳
          */
-        avFrame->pts = index;
-        avPacket.stream_index = avStream->index;
-        avPacket.pts = index * (avStream->time_base.den) / ((avStream->time_base.num) * fps);
+        avPacket.pts = av_rescale_q(avFrame->pts,avCodecContext->time_base,avStream->time_base);
         avPacket.dts = avPacket.pts;
-        avPacket.duration = (avStream->time_base.den) / ((avStream->time_base.num) * fps);
+        // 计算一帧持续的时间，这里avStream的time_base是{1,1000},所以duration= 1000 / 40 单位ms
+        avPacket.duration = avStream->time_base.den / fps;
         avPacket.pos = -1;
         ret = av_interleaved_write_frame(avFormatContext, &avPacket);
         if (ret < 0) {

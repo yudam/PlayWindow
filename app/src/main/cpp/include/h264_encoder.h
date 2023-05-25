@@ -36,7 +36,7 @@ private:
     int height;
     uint8_t *out_buffer;
     int index = 0;
-    int fps = 30;
+    int fps = 20;
 
     const char *rtmpUrl;
 

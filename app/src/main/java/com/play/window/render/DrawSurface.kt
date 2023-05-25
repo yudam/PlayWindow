@@ -39,17 +39,16 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
 
     private var frameRate = 30
 
-    private val textureList = mutableListOf<TextureInfo>()
+    private var graphProcess: GraphProcess? = null
 
-    val matrix = FloatArray(16).apply {
-        Matrix.setIdentityM(this, 0)
-    }
+    private val renderLock = Object()
 
     init {
         Thread(this).start()
     }
 
     override fun run() {
+        graphProcess = GraphProcess()
         Looper.prepare()
         mLooper = Looper.myLooper()
         synchronized(lock) {
@@ -71,14 +70,14 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
                         info = msg.obj as DisplayInfo
                         frameRate = info!!.fps
                         mEglCore = EglCore(shareContext, 0)
-                        if(info?.surface != null){
+                        if (info?.surface != null) {
                             mWindowSurface = WindowSurface(mEglCore!!, info!!.surface)
                         } else {
                             mWindowSurface = WindowSurface(mEglCore!!, info!!.surfaceTexture)
                         }
-                        textureList.add(TextureInfo(info!!.mTetxureId!!, info!!.rect))
+                        graphProcess?.addTextureInfo(TextureInfo(info!!.mTetxureId!!, info!!.rect))
                         drawTimeControll()
-                     }
+                    }
 
                     DRAWSCENE -> {
                         drawTimeControll()
@@ -113,29 +112,15 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
 
         if (delay < 5 * 1000) delay = 5 * 1000
 
-        drawHandler?.sendEmptyMessageDelayed(DRAWSCENE, delay/1000/1000)
+        drawHandler?.sendEmptyMessageDelayed(DRAWSCENE, delay / 1000 / 1000)
 
 
     }
 
     private fun drawScene() {
         mWindowSurface?.makeCurrent()
-        //clear操作一定要在最外层做，否则会清除之前的渲染导致混合不生效
-        GLES20.glClearColor(0f, 0f, 0f, 0f)
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        textureList.forEach {
-            if (it.mProgram == null) {
-                it.mProgram =  if(it.isOES){
-                    TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-                        GlUtil.readRawResourse(R.raw.simple_oes_shader))
-                } else {
-                    TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-                        GlUtil.readRawResourse(R.raw.simple_fragment_shader))
-                }
-            }
-            GLES20.glViewport(0,0,it.rect.pw.toInt(),it.rect.ph.toInt())
-            it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
-                matrix,it.isOES)
+        synchronized(renderLock) {
+            graphProcess?.draw()
         }
         mWindowSurface?.swapBuffers()
     }
@@ -156,47 +141,17 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
 
     }
 
-    fun addBitmap(texture:Int,rect: GLRect){
-        textureList.add(TextureInfo(texture,rect,false))
+    fun addBitmap(texture: Int, rect: GLRect) {
+        graphProcess?.addTextureInfo(TextureInfo(texture, rect, false))
     }
 
 
-    fun getSurfaceTexture():SurfaceTexture{
+    fun getSurfaceTexture(): SurfaceTexture {
         return info!!.surfaceTexture!!
     }
 
-    private fun parseVertexArray(rect: GLRect): FloatArray {
-
-        val cx = (rect.cx / rect.pw) * 2 - 1
-        val cy = (rect.cy / rect.ph) * 2 - 1
-        val w = (rect.width / rect.pw) * 2
-        val h = (rect.height / rect.ph) * 2
-
-        val vertex = floatArrayOf(
-            cx - w / 2, cy + h / 2,      // bottom left
-            cx + w / 2, cy + h / 2,      // bottom right
-            cx - w / 2, cy - h / 2,      // top left
-            cx + w / 2, cy - h / 2       // top right
-        )
-        return vertex
-    }
-
-    private fun parseFragmentArray(rect: GLRect): FloatArray {
-        val cx = rect.cx / rect.pw
-        val cy = rect.cy / rect.ph
-        val w = rect.width / rect.pw
-        val h = rect.height / rect.ph
-        val fragment = floatArrayOf(
-            cx - w / 2, cy - h / 2,      // top left
-            cx + w / 2, cy - h / 2,      // top right
-            cx - w / 2, cy + h / 2,      // bottom left
-            cx + w / 2, cy + h / 2       // bottom right
-        )
-        return fragment
-    }
-
-    fun getInfo():DisplayInfo?{
-     return info
+    fun getInfo(): DisplayInfo? {
+        return info
     }
 
     companion object {
