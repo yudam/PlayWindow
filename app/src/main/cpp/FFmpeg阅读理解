@@ -30,6 +30,8 @@ FFmpeg中知识点：
    我们将 AVCodecContext.time_base 设置为帧率的倒数。
 
 
+7. pcm音频通过ffmpeg编码时，要注意Android中采用的采样位数和ffmpeg中不一致，需要进行一次转码操作
+
 音视频小知识点：
 
 1。 不包含B帧的视频，其每一帧的PTS和DTS都相同，B帧属于双向预测帧，需要其前和后的帧，所以其解码时间和显示时间不一致。

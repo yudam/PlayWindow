@@ -8,6 +8,7 @@ import android.opengl.Matrix
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
+import android.view.Window
 import com.play.window.R
 import com.play.window.WindowApp
 import com.play.window.capture.VideoPlayer
@@ -30,28 +31,69 @@ class WindowRender() {
     private var mEglCore: EglCore? = null
     private var windowHandler: Handler? = null
     private val surfaceList = mutableListOf<SurfaceParam>()
-    private var drawSurface:DrawSurface? = null
+    private val surfaceMap = mutableMapOf<Int, DrawSurface?>()
+    private var previewSurfaceId = 0
+
 
     init {
         mEglCore = EglCore()
         mEglCore?.makeCurrent(null, null)
     }
 
+    fun getPreViewSurfaceTexture(): SurfaceTexture? {
+        return surfaceMap[previewSurfaceId]?.getSurfaceTexture()
+    }
+
     /**
      * 添加Surface
+     */
+    fun addEncoderSurface(surface: Surface){
+
+    }
+
+    /**
+     * 添加SurfaceTexture
      */
     fun addDisplaySurface(info: DisplayInfo) {
         val params = createTextureInfo(info)
         surfaceList.add(params)
-        Log.i(WindowApp.TAG, "addDisplaySurface: "+params.texture)
+        Log.i(WindowApp.TAG, "addDisplaySurface: " + params.texture)
         VideoPlayer(info.url, Surface(params.surfaceTexture))
-        drawSurface = DrawSurface(mEglCore?.sharedContext)
-        drawSurface?.addDisplaySurface(info)
+        val drawSurface = DrawSurface(mEglCore?.sharedContext)
+        drawSurface.addDisplaySurface(info)
+        previewSurfaceId = info.surfaceId
+        surfaceMap[info.surfaceId] = drawSurface
     }
 
-    fun addBitmap(scene: BitmapScene){
+    fun setEncoderSurface(surface: Surface){
+        val preInfo = surfaceMap[previewSurfaceId]?.getInfo()
+        Log.i(WindowApp.TAG, "preInfo: "+preInfo.toString())
+        if (preInfo != null) {
+            val data = preInfo.copyInfo(null)
+            data.surface = surface
+            Log.i(WindowApp.TAG, "data: "+data.toString())
+            val drawSurface = DrawSurface(mEglCore?.sharedContext)
+            drawSurface.addDisplaySurface(data)
+        }
+    }
+
+
+    fun copyPreViewSurface(surfaceTexture: SurfaceTexture) {
+
+        val preInfo = surfaceMap[previewSurfaceId]?.getInfo()
+
+        Log.i(WindowApp.TAG, "preInfo: "+preInfo.toString())
+        if (preInfo != null) {
+            val data = preInfo.copyInfo(surfaceTexture)
+            Log.i(WindowApp.TAG, "data: "+data.toString())
+            val drawSurface = DrawSurface(mEglCore?.sharedContext)
+            drawSurface.addDisplaySurface(data)
+        }
+    }
+
+    fun addBitmap(scene: BitmapScene) {
         val texture = GlUtils.getTexture(scene.bitmap)
-        drawSurface?.addBitmap(texture,scene.rect)
+        surfaceMap[scene.surfaceId]?.addBitmap(texture, scene.rect)
     }
 
 

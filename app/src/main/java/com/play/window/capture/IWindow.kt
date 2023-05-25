@@ -13,13 +13,19 @@ import com.play.window.model.GLRect
  */
 interface IWindow {
 
-    fun playVideo(info: DisplayInfo)
+    fun startPublish()
 
-    fun addBitmap(bitmap: Bitmap, rect: GLRect): Int
+    fun stopPublish()
 
-    fun updateBitmap(sceneId: Int, bitmap: Bitmap, rect: GLRect): Int
+    fun playVideo(surfaceTexture: SurfaceTexture):Int
 
-    fun removeBitmap(sceneId: Int)
+    fun playVideo(info: DisplayInfo):Int
+
+    fun addBitmap(bitmap: Bitmap, rect: GLRect,surfaceId:Int): Int
+
+    fun updateBitmap(sceneId: Int, bitmap: Bitmap, rect: GLRect,surfaceId:Int): Int
+
+    fun removeBitmap(sceneId: Int,surfaceId:Int)
 
     fun release()
 }

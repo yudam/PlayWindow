@@ -85,7 +85,8 @@ class AudioProcess : HandlerThread("AudioProcess") {
         }
         audioData.clear()
         Log.i(WindowApp.TAG, "write: " + audioData.remaining())
-        audioTrack?.write(audioData, buffSize, AudioTrack.WRITE_BLOCKING)
+       val ret =  audioTrack?.write(audioData, buffSize, AudioTrack.WRITE_BLOCKING)
+        Log.i(WindowApp.TAG, "ret: $ret")
     }
 
     companion object {

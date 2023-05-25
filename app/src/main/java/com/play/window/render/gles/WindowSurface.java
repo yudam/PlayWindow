@@ -46,7 +46,7 @@ public class WindowSurface extends EglSurfaceBase {
     /**
      * Associates an EGL surface with the SurfaceTexture.
      */
-    public WindowSurface(EglCore eglCore, SurfaceTexture surfaceTexture) {
+    public WindowSurface(EglCore eglCore, Object surfaceTexture) {
         super(eglCore);
         createWindowSurface(surfaceTexture);
     }

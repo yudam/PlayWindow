@@ -12,4 +12,8 @@ interface IEncoderDataListener {
     fun notifyAvailableData(packet: MediaPacket)
 
     fun notifyMediaFormat(format: MediaFormat,isVideo:Boolean)
+
+    fun notifyHeaderData(packet: MediaPacket){}
+
+    fun notifyEnd(){}
 }

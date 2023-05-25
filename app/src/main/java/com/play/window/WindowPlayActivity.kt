@@ -33,6 +33,8 @@ class WindowPlayActivity : AppCompatActivity() {
 
     private  var window :IWindowImpl? = null
 
+    private var surfaceId:Int = -1
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWindowPlayBinding.inflate(layoutInflater)
@@ -61,11 +63,28 @@ class WindowPlayActivity : AppCompatActivity() {
         }
 
         binding.btnEnd.setOnClickListener {
-          val bitmap =   BitmapFactory.decodeResource(resources,R.mipmap.ic_1)
+
+           val option =  BitmapFactory.Options().apply {
+                inSampleSize = 8
+            }
+            val bitmap =   BitmapFactory.decodeResource(resources,R.mipmap.ic_1)
             val width = binding.playVideo.width
             val height = binding.playVideo.height
-            val rect = GLRect(width / 2f, height / 2f, 200f, 200f,width.toFloat(),height.toFloat())
-            window?.addBitmap(bitmap,rect)
+            val rect = GLRect(width / 2f, height / 2f, bitmap.width.toFloat(), bitmap.height.toFloat(),width.toFloat(),height.toFloat())
+            window?.addBitmap(bitmap,rect,surfaceId)
+        }
+
+        binding.startPublish.setOnClickListener {
+            window?.startPublish()
+        }
+
+
+        binding.start2.setOnClickListener {
+           val  surfaceTexture = binding.playVideo2.surfaceTexture
+            Log.i(WindowApp.TAG, "surfaceTexture: $surfaceTexture")
+            if(surfaceTexture != null){
+                window?.playVideo(surfaceTexture)
+            }
         }
     }
 
@@ -88,7 +107,7 @@ class WindowPlayActivity : AppCompatActivity() {
         Log.i(WindowApp.TAG, "initPlayer: "+Thread.currentThread().name)
         window = IWindowImpl()
         val info = DisplayInfo(url,rect,surfaceTexture,30)
-        window?.playVideo(info)
+        surfaceId = window!!.playVideo(info)
     }
 
 }

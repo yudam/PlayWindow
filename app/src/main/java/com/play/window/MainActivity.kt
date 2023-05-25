@@ -7,7 +7,10 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
+import com.play.window.capture.AudioNativeEncoder
 import com.play.window.databinding.ActivityMainBinding
+import com.play.window.utils.RecordUtil
+import java.io.File
 
 /**
  * 视频的播放，录制，快速，变速
@@ -16,6 +19,9 @@ import com.play.window.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    private var aacEncoder: AudioNativeEncoder? = null
+    private var isEncoder = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +43,27 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+
+        ActivityCompat.requestPermissions(this,
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.RECORD_AUDIO,
+        ), 123)
+
+
+        binding.btnAac.setOnClickListener {
+            if(isEncoder){
+                isEncoder = false
+                aacEncoder?.stopAudioRecord()
+            } else {
+                if(aacEncoder == null){
+                    aacEncoder = AudioNativeEncoder()
+                }
+                aacEncoder?.startAudioRecord(getAudioPath())
+                isEncoder = true
+            }
+        }
     }
 
 
@@ -53,5 +80,19 @@ class MainActivity : AppCompatActivity() {
         }
         cursor.close()
         return list
+    }
+
+
+
+    private fun getAudioPath(): String {
+        val path = cacheDir.absolutePath + "/audiofile2.aac"
+        val file = File(path)
+        if (!file.exists()) {
+            file.createNewFile()
+        } else {
+            file.delete()
+            file.createNewFile()
+        }
+        return path
     }
 }

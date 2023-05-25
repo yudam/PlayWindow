@@ -3,25 +3,50 @@
 //
 
 #include "RtmpFlow.h"
+#include <jni.h>
 
-void RtmpFlow::rtmpMethod() {
-}
+#define logi(...) __android_log_print(ANDROID_LOG_INFO,"RtmpFlow",__VA_ARGS__)
 
-void RtmpFlow::init(char *url, int videoBitRate, int frameRate, int width, int height, int sampleRate, int channel, int audioBitRare) {
+//#define LOG_BUF_PREFIX_SIZE 512
+//#define LOG_BUF_SIZE 1024
+//char libffmpeg_log_buf_prefix[LOG_BUF_PREFIX_SIZE];
+//char libffmpeg_log_buf[LOG_BUF_SIZE];
+//
+//
+///**
+// * 设置ffmpeg的日志回调，用于打印输出
+// * 这里设置的日志级别是AV_LOG_ERROR，也就是错误日志的输出
+// */
+//static void yunxi_ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+//    int cnt;
+//    memset(libffmpeg_log_buf_prefix, 0, LOG_BUF_PREFIX_SIZE);
+//    memset(libffmpeg_log_buf, 0, LOG_BUF_SIZE);
+//
+//    cnt = snprintf(libffmpeg_log_buf_prefix, LOG_BUF_PREFIX_SIZE, "%s", fmt);
+//    cnt = vsnprintf(libffmpeg_log_buf, LOG_BUF_SIZE, libffmpeg_log_buf_prefix, vl);
+//
+//    if (level == AV_LOG_ERROR) {
+//        logi("%s", libffmpeg_log_buf);
+//    }
+//    return;
+//}
+
+
+void RtmpFlow::init(char *url, int videoBitRate, int frameRate, int width, int height) {
     this->publicUrl = url;
     this->videoBitRate = videoBitRate;
     this->frameRate = frameRate;
     this->width = width;
     this->height = height;
-    this->sampleRate = sampleRate;
-    this->channel = channel;
-    this->audioBitRate = audioBitRare;
     av_register_all();
     avformat_network_init();
+//    av_log_set_level(AV_LOG_ERROR);
+//    av_log_set_flags(AV_LOG_SKIP_REPEATED);
+//    av_log_set_callback(yunxi_ffmpeg_log_callback);
     avformat_alloc_output_context2(&avfCtx, nullptr, "flv", "");
     newStream(true);
-    //newStream(false);
-    av_dump_format(avfCtx, 0, publicUrl, 0);
+    avPacket = av_packet_alloc();
+    //av_dump_format(avfCtx, 0, publicUrl, 0);
 }
 
 
@@ -32,7 +57,11 @@ void RtmpFlow::init(char *url, int videoBitRate, int frameRate, int width, int h
 void RtmpFlow::connect() {
     if (avfCtx->flags & AVFMT_NOFILE) {
         if (avio_open(&avfCtx->pb, publicUrl, AVIO_FLAG_READ_WRITE) < 0) {
+            logi(" avio_open failed");
             return;
+        }
+        if (avformat_write_header(avfCtx, nullptr) < 0) {
+            logi("avformat_write_header failed");
         }
     }
 }
@@ -56,14 +85,16 @@ void RtmpFlow::newStream(bool isVideo) {
      */
     AVCodec *avcodec = avcodec_find_encoder(isVideo ? AV_CODEC_ID_H264 : AV_CODEC_ID_AAC);
     if (!avcodec) {
+        logi("avcodec_find_encoder failed");
         return;
     }
 
     /**
      * 3. 根据AVCodec创建 AVCodecContext,也就是编码器的上下文，保存了编码的信息如比特率，宽高，gop等
      */
-    AVCodecContext *avCodecContext = avcodec_alloc_context3(avcodec);
+    avCodecContext = avcodec_alloc_context3(avcodec);
     if (!avCodecContext) {
+        logi("avcodec_alloc_context3 failed");
         return;
     }
     avCodecContext->codec_id = avcodec->id;
@@ -84,13 +115,13 @@ void RtmpFlow::newStream(bool isVideo) {
         avCodecContext->qcompress = 0.6;
         avCodecContext->pix_fmt = AV_PIX_FMT_YUV420P;
     } else {
-        avCodecContext->codec_type = AVMEDIA_TYPE_AUDIO;
-        // 音频编码设置比特率、通道、通道类型、采样率、采样深度等
-        avCodecContext->bit_rate = audioBitRate;
-        avCodecContext->channel_layout = channel == 1 ? AV_CH_LAYOUT_MONO : AV_CH_LAYOUT_STEREO;
-        avCodecContext->channels = channel;
-        avCodecContext->sample_rate = sampleRate;
-        avCodecContext->sample_fmt = AV_SAMPLE_FMT_S16;
+//        avCodecContext->codec_type = AVMEDIA_TYPE_AUDIO;
+//        // 音频编码设置比特率、通道、通道类型、采样率、采样深度等
+//        avCodecContext->bit_rate = audioBitRate;
+//        avCodecContext->channel_layout = channel == 1 ? AV_CH_LAYOUT_MONO : AV_CH_LAYOUT_STEREO;
+//        avCodecContext->channels = channel;
+//        avCodecContext->sample_rate = sampleRate;
+//        avCodecContext->sample_fmt = AV_SAMPLE_FMT_S16;
     }
 
     if (avfCtx->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -107,6 +138,7 @@ void RtmpFlow::newStream(bool isVideo) {
      * 4. 打开编码器
      */
     if (avcodec_open2(avCodecContext, avcodec, &opts) < 0) {
+        logi("avcodec_open2 failed");
         return;
     }
 
@@ -116,26 +148,74 @@ void RtmpFlow::newStream(bool isVideo) {
      */
     AVStream *avStream = avformat_new_stream(avfCtx, avcodec);
     if (!avStream) {
+        logi("avformat_new_stream failed");
         return;
     }
     // 设置时基
-    avStream->time_base.num = 1;
-    avStream->time_base.den = frameRate;
+    avStream->time_base = AVRational{1, frameRate};
     avStream->codecpar->codec_tag = 0;
-    // 复制context参数到coderpar
-    if (avcodec_parameters_from_context(avStream->codecpar, avCodecContext) < 0) {
-        return;
-    }
 }
+
+
+int RtmpFlow::sendMediaPacket(MediaPacket *packet) {
+    logi("sendMediaPacket    0");
+    avPacket->stream_index = video_index;
+    if (startTime == 0) {
+        startTime = packet->pts;
+    }
+    avPacket->pts = (packet->pts - startTime) / 1000 + 1;
+    avPacket->dts = avPacket->pts;
+    avPacket->size = packet->bufferSize;
+    avPacket->data = (uint8_t *) packet->buffer;
+    avPacket->pos = -1;
+    logi("  data size : %d,   pts: %d", avPacket->size, avPacket->pts);
+    av_interleaved_write_frame(avfCtx, avPacket);
+    logi("sendMediaPacket    1");
+    av_packet_unref(avPacket);
+}
+
+/**
+ * 首先发送sps和pps，sps和pps需要按照NALU单元格式来拼接
+ */
+int RtmpFlow::sendVideoHeader(uint8_t *sps, uint8_t *pps, int sps_len, int pps_len) {
+
+    int nalSize = 13 + sps_len + 3 + pps_len;
+    uint8_t *packet = (uint8_t *) av_malloc(nalSize);
+}
+
 
 /**
  * 发送AVPacket
  */
-int RtmpFlow::sendPacket(uint8_t *data, long pts, bool isCsd) {
+int RtmpFlow::sendVideoPacket(uint8_t *data, int len, long pts, bool isCsd) {
+    logi("sendVideoPacket    0");
+    avPacket->data = data;
+    avPacket->stream_index = video_index;
+    if (isCsd) {
+        startTime = pts;
+        avPacket->pts = 0;
+        avPacket->dts = 0;
+    } else {
+        avPacket->pts = (pts - startTime) / 1000;
+        avPacket->dts = avPacket->pts;
+    }
+    avPacket->size = len;
+    logi("  data size : %d,   pts: %d", avPacket->size, avPacket->pts);
 
+    if (avfCtx == nullptr) {
+        logi("what    ");
+    }
+    av_interleaved_write_frame(avfCtx, avPacket);
+    logi("sendVideoPacket    1");
+    av_packet_free(&avPacket);
+
+}
+
+int RtmpFlow::sendAudioPacket(uint8_t *data, int len, long pts, bool isCsd) {
 
 
 }
+
 
 void RtmpFlow::release() {
 

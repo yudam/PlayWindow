@@ -6,6 +6,8 @@
 #define PLAYWINDOW_RTMPFLOW_H
 
 #include <iostream>
+#include <android/log.h>
+
 
 extern "C" {
 #include "include/libavformat/avformat.h"
@@ -14,35 +16,56 @@ extern "C" {
 #include "include/libavutil/time.h"
 };
 
+
+struct MediaPacket {
+    void *buffer;
+    void *csd_0;
+    void *csd_1;
+    int media_type;
+    int64_t pts;
+    int bufferSize;
+    int csd0Size;
+    int csd1Size;
+    bool  isCsd;
+};
+
 class RtmpFlow {
 
 public:
     AVFormatContext *avfCtx = nullptr;
+    AVCodecContext *avCodecContext = nullptr;
     char *publicUrl = nullptr;
     int videoBitRate;
     int frameRate;
     int width;
     int height;
-    int sampleRate;
-    int channel;
-    int audioBitRate;
 
     AVStream *video_st = nullptr;
-    AVFrame * avFrame = nullptr;
+    AVFrame *avFrame = nullptr;
 
-    void init(char *url, int videoBitRate, int frameRate, int width, int height, int sampleRate, int channel, int audioBitTare);
+    void init(char *url, int videoBitRate, int frameRate, int width, int height);
 
     void connect();
 
     void newStream(bool isVideo);
 
-    int sendPacket(uint8_t * data,long pts,bool isCsd);
+    int sendMediaPacket(MediaPacket *packet);
+
+    int sendVideoHeader(uint8_t *sps,uint8_t *pps,int sps_len,int pps_len);
+
+    int sendVideoPacket(uint8_t *data, int len, long pts, bool isCsd);
+
+    int sendAudioPacket(uint8_t *data, int len, long pts, bool isCsd);
 
     void release();
 
 private:
-    void rtmpMethod();
 
+    int video_index;
+    int audio_index;
+    int64_t startTime = 0;
+
+    AVPacket *avPacket = nullptr;
 
 };
 

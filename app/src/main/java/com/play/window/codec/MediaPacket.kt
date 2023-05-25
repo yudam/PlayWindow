@@ -16,4 +16,13 @@ class MediaPacket {
     var isVideo = false
     var isAudio = false
     var meidaFormat: MediaFormat? = null
+
+    var isCsd = false
+    var csd0: ByteBuffer? = null
+    var csd1: ByteBuffer? = null
+
+
+    var csd0Size: Int = -1
+    var csd1Size: Int = -1
+    var bufferSize: Int = -1
 }

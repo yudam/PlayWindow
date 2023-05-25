@@ -1,5 +1,6 @@
 package com.play.window.render
 
+import android.graphics.SurfaceTexture
 import android.opengl.EGLContext
 import android.opengl.GLES20
 import android.opengl.GLES30
@@ -68,11 +69,16 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
                 when (msg.what) {
                     ADDSCENE -> {
                         info = msg.obj as DisplayInfo
+                        frameRate = info!!.fps
                         mEglCore = EglCore(shareContext, 0)
-                        mWindowSurface = WindowSurface(mEglCore!!, info!!.surfaceTexture)
+                        if(info?.surface != null){
+                            mWindowSurface = WindowSurface(mEglCore!!, info!!.surface)
+                        } else {
+                            mWindowSurface = WindowSurface(mEglCore!!, info!!.surfaceTexture)
+                        }
                         textureList.add(TextureInfo(info!!.mTetxureId!!, info!!.rect))
                         drawTimeControll()
-                    }
+                     }
 
                     DRAWSCENE -> {
                         drawTimeControll()
@@ -155,6 +161,10 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
     }
 
 
+    fun getSurfaceTexture():SurfaceTexture{
+        return info!!.surfaceTexture!!
+    }
+
     private fun parseVertexArray(rect: GLRect): FloatArray {
 
         val cx = (rect.cx / rect.pw) * 2 - 1
@@ -183,6 +193,10 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
             cx + w / 2, cy + h / 2       // bottom right
         )
         return fragment
+    }
+
+    fun getInfo():DisplayInfo?{
+     return info
     }
 
     companion object {
