@@ -26,6 +26,7 @@ import com.play.window.render.model.BitmapScene
 import com.play.window.render.model.TextureInfo
 import com.play.window.temp.GlUtils
 import com.play.window.utils.MediaConfig
+import com.play.window.utils.MuxerUtil
 import javax.microedition.khronos.egl.EGL10
 import kotlin.concurrent.thread
 
@@ -42,6 +43,8 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
     private var h264Encoder:H264Encoder? = null
     private val lock = Object()
 
+    private var muxerUtil:MuxerUtil? = null
+
     init {
         start()
     }
@@ -49,19 +52,17 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
     private val listener = object :IEncoderDataListener{
         override fun notifyAvailableData(packet: MediaPacket) {
             Log.i(WindowApp.TAG, "notifyAvailableData: "+packet.data?.remaining()+"  pts: "+packet.pts)
-            BaseNative.sendPacket(packet)
+            muxerUtil?.writeSampleData(packet.data,packet.info,true)
         }
 
         override fun notifyMediaFormat(format: MediaFormat, isVideo: Boolean) {
-
+            muxerUtil?.addTrack(format,isVideo)
         }
 
         override fun notifyHeaderData(packet: MediaPacket) {
             Log.i(WindowApp.TAG, "sps: "+packet.csd0?.remaining()+
                 "  pps:"+packet.csd1?.remaining()+"  pts:" + packet.pts)
-            val config =  MediaConfig()
-            BaseNative.initPublish(config.publishUrl,config.videoBitRate,config.videoFrameRate,config.videoWidth,config.videoHeight)
-            BaseNative.connect()
+            muxerUtil?.writeSampleData(packet.data,packet.info,true)
         }
 
         override fun notifyEnd() {
@@ -78,15 +79,27 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                     when (msg.what) {
 
                         STARTPUBLISH -> {
-                            h264Encoder =  H264Encoder(MediaConfig()).apply {
-                                setListener(listener)
-                                windowRender?.setEncoderSurface( getEncoderSurface())
-                            }
+                            Log.i(WindowApp.TAG, "STARTPUBLISH: ")
                         }
 
                         STOPPUBLISH -> {
                             h264Encoder?.stopEncoder()
                         }
+
+                        RECORDAV -> {
+                            val path = msg.obj as String
+                            muxerUtil = MuxerUtil(path)
+                            h264Encoder =  H264Encoder(MediaConfig()).apply {
+                                setListener(listener)
+                                windowRender?.setEncoderSurface( getEncoderSurface(),getRect())
+                            }
+                        }
+
+                        STOPRECOR -> {
+                            muxerUtil?.release()
+                            h264Encoder?.stopEncoder()
+                        }
+
                         PLAYVIDEO -> {
                             val info = msg.obj as DisplayInfo
                             windowRender?.addDisplaySurface(info)
@@ -118,6 +131,21 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
 
     override fun stopPublish() {
         windowHandler?.sendEmptyMessage(STOPPUBLISH)
+    }
+
+    override fun startRecord(path: String) {
+       val message =  Message().apply {
+            obj = path
+            what = RECORDAV
+        }
+        windowHandler?.sendMessage(message)
+    }
+
+    override fun stopRecord() {
+        val message =  Message().apply {
+            what = STOPRECOR
+        }
+        windowHandler?.sendMessage(message)
     }
 
     override fun playVideo(surfaceTexture: SurfaceTexture): Int {
@@ -165,5 +193,7 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         private const val STARTPUBLISH = 0x14
         private const val STOPPUBLISH = 0x15
         private const val COPYSURFACE = 0x16
+        private const val RECORDAV = 0x17
+        private const val STOPRECOR = 0x18
     }
 }

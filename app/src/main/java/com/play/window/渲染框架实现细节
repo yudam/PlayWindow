@@ -1,0 +1,20 @@
+
+在同一个DrawSurface中尝试绑定多个输出Surface，分别创建对应的WindowSurface，在渲染时，便利Surface对应
+的集合来调用makeCurrent()和swapBuffer()来刷新纹理到Surface中，这是一个思路，尝试能不能走通。
+
+转场动画的思路在于：在预览的DrawSurface中通过FBO来一次绘制两个场景的纹理，然后在渲染到预览上，直到动画结束在
+继续进行原先的渲染。目前转场动画先不急着做，渲染框架需要慢慢完善。
+
+
+1. 因为纹理需要在不同的DrawSurface中进行复用，所以需要被复用的DrawSurface中的纹理，那么对应的DrawSurface
+   就必须和WindowRender在同一个线程，否则纹理会无法共享。
+
+2.
+
+3.
+
+4.
+
+5.
+
+6.

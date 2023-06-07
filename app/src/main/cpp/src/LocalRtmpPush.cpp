@@ -69,10 +69,36 @@ int LocalRtmpPush::open(const char *infilename, const char *outfilename) {
     if (!(out_avf_context->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open2(&out_avf_context->pb, outfilename, AVIO_FLAG_WRITE, nullptr, nullptr);
         if (ret < 0) {
-            loge("avio_open2: %d, out_file:  %s",ret,outfilename);
+            loge("avio_open2: %d, out_file:  %s", ret, outfilename);
             return ret;
         }
     }
+
+
+    for (int i = 0; i < in_avf_context->nb_streams; i++) {
+        AVStream *avStream = in_avf_context->streams[i];
+        if (avStream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            int size = avStream->codecpar->extradata_size;
+            logi("in extradata size : %d", size);
+            uint8_t *extradata = avStream->codecpar->extradata;
+            for (int n = 0; n < size; n++) {
+                logi("in extradata: %02x", extradata[n]);
+            }
+        }
+    }
+
+    for (int i = 0; i < out_avf_context->nb_streams; i++) {
+        AVStream *avStream = out_avf_context->streams[i];
+        if (avStream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            int size = avStream->codecpar->extradata_size;
+            logi("out extradata size : %d", size);
+            uint8_t *extradata = avStream->codecpar->extradata;
+            for (int n = 0; n < size; n++) {
+                logi("out extradata: %02x", extradata[n]);
+            }
+        }
+    }
+
 
     ret = avformat_write_header(out_avf_context, nullptr);
     if (ret < 0) {
@@ -125,7 +151,7 @@ void LocalRtmpPush::push() {
 //        avPacket->duration = av_rescale_q(avPacket->duration, in_stream->time_base, out_stream->time_base);
 //        avPacket->pos = -1;
 
-        av_packet_rescale_ts(avPacket,in_stream->time_base,out_stream->time_base);
+        av_packet_rescale_ts(avPacket, in_stream->time_base, out_stream->time_base);
 
         logi("av_interleaved_write_frame");
         if (av_interleaved_write_frame(out_avf_context, avPacket) < 0) {

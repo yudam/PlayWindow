@@ -26,6 +26,7 @@ import android.opengl.Matrix;
 import android.util.Log;
 
 import com.play.window.WindowApp;
+import com.play.window.render.model.GlFrameBuffer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -226,28 +227,31 @@ public class GlUtil {
     /**
      * 创建FBO，需要指定宽高
      */
-    public static int createFboTextureId(Boolean isOES, int width, int height) {
-        int[] intArray = new int[2];
+    public static GlFrameBuffer prepareFrameBuffer(int width, int height) {
+        GlFrameBuffer glFrameBuffer = new GlFrameBuffer();
+        int[] intArray = new int[1];
         GLES20.glGenTextures(1, intArray, 0);
-        if (isOES) {
-            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, intArray[0]);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES10.GL_TEXTURE_MIN_FILTER, GLES10.GL_NEAREST);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES10.GL_TEXTURE_MAG_FILTER, GLES10.GL_LINEAR);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES10.GL_TEXTURE_WRAP_S, GLES10.GL_CLAMP_TO_EDGE);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES10.GL_TEXTURE_WRAP_T, GLES10.GL_CLAMP_TO_EDGE);
-            GLES20.glTexImage2D(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA,
-                GLES20.GL_UNSIGNED_BYTE, null);
-        } else {
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, intArray[0]);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MIN_FILTER, GLES10.GL_NEAREST);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MAG_FILTER, GLES10.GL_LINEAR);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_S, GLES10.GL_CLAMP_TO_EDGE);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_T, GLES10.GL_CLAMP_TO_EDGE);
-            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA,
-                GLES20.GL_UNSIGNED_BYTE, null);
-        }
-        checkGlError("getTexture");
-        return intArray[0];
+        glFrameBuffer.setTextureId(intArray[0]);
+        Log.i("MDY", "getTextureId:"+glFrameBuffer.getTextureId()+"    vl:"+intArray[0]);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, glFrameBuffer.getTextureId());
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MIN_FILTER, GLES10.GL_NEAREST);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MAG_FILTER, GLES10.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_S, GLES10.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_T, GLES10.GL_CLAMP_TO_EDGE);
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE, null);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,0);
+        checkGlError("glBindTexture");
+
+        GLES20.glGenFramebuffers(1, intArray, 0);
+        glFrameBuffer.setFrameBufferId(intArray[0]);
+        Log.i("MDY", "getFrameBufferId:"+glFrameBuffer.getFrameBufferId());
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer.getFrameBufferId());
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+            GLES20.GL_TEXTURE_2D, glFrameBuffer.getTextureId(), 0);
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+        checkGlError("glGenFramebuffers");
+        return glFrameBuffer;
     }
 
 

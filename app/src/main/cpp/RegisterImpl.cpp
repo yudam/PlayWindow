@@ -43,6 +43,7 @@ void native_app_Open(JNIEnv *env, jobject thiz, jstring infilename, jstring outf
     int ret = localRtmpPush->open(in_path, out_path);
     if (ret < 0) {
         logi(" open failed");
+        return;
     }
     localRtmpPush->push();
     localRtmpPush->close();
@@ -77,7 +78,12 @@ void native_sendPacket(JNIEnv *env, jobject object, jobject packet) {
     packet1->buffer = env->GetDirectBufferAddress(dataBuffer);
     packet1->bufferSize = env->GetIntField(packet, javaImpl->java_bufferSize);
 
-    logi("  buffer : %d", packet1->buffer == nullptr);
+    packet1->isCsd = env->GetBooleanField(packet,javaImpl->java_isCsd);
+    packet1->csd_0 = env->GetObjectField(packet,javaImpl->java_csd0);
+    packet1->csd_1 = env->GetObjectField(packet,javaImpl->java_csd1);
+    packet1->csd0Size = env->GetIntField(packet,javaImpl->java_csd0Size);
+    packet1->csd1Size = env->GetIntField(packet,javaImpl->java_csd1Size);
+
     rtmpFlow->sendMediaPacket(packet1);
 }
 

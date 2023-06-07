@@ -30,6 +30,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
 
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 123)
+
         binding.btnTest.setOnClickListener {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED

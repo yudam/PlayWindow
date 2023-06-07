@@ -18,7 +18,7 @@ class MediaConfig {
 
     var videoHeight = 1080
 
-    var videoFrameRate = 30
+    var videoFrameRate = 20
 
     var videoBitRateModel = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
 

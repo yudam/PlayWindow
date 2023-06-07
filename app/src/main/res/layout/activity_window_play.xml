@@ -4,48 +4,104 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/black"
     tools:context=".WindowPlayActivity">
-
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:id="@+id/btn_end"
-        android:text="TEST"/>
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:id="@+id/start_publish"
-        android:text="start publish"/>
 
     <TextureView
         android:id="@+id/play_video"
         android:layout_width="match_parent"
         android:layout_height="200dp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
-
+        app:layout_constraintTop_toTopOf="parent" />
 
 
     <TextureView
-        android:id="@+id/play_video2"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
+        android:id="@+id/tv_top_left"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/tv_bottom_left"
+        app:layout_constraintEnd_toStartOf="@+id/tv_top_right"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@+id/play_video" />
+
+
+    <TextureView
+        android:id="@+id/tv_top_right"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/tv_bottom_left"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/tv_top_left"
+        app:layout_constraintTop_toBottomOf="@+id/play_video" />
+
+    <TextureView
+        android:id="@+id/tv_bottom_left"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tv_bottom_right"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_top_left" />
+
+
+    <TextureView
+        android:id="@+id/tv_bottom_right"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/tv_bottom_left"
+        app:layout_constraintTop_toBottomOf="@+id/tv_top_left" />
 
 
     <Button
+        android:id="@+id/btn_play"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:id="@+id/start2"
-        android:text="start new surface"/>
+        android:text="播放"
+        app:layout_constraintStart_toStartOf="@+id/play_video"
+        app:layout_constraintEnd_toEndOf="@+id/play_video"
+        app:layout_constraintTop_toTopOf="@+id/play_video"
+        app:layout_constraintBottom_toBottomOf="@+id/play_video"/>
+
+    <Button
+        android:id="@+id/btn_top_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="播放"
+        app:layout_constraintStart_toStartOf="@+id/tv_top_left"
+        app:layout_constraintEnd_toEndOf="@+id/tv_top_left"
+        app:layout_constraintTop_toTopOf="@+id/tv_top_left"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_top_left"/>
+
+    <Button
+        android:id="@+id/btn_top_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="播放"
+        app:layout_constraintStart_toStartOf="@+id/tv_top_right"
+        app:layout_constraintEnd_toEndOf="@+id/tv_top_right"
+        app:layout_constraintTop_toTopOf="@+id/tv_top_right"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_top_right"/>
+
+    <Button
+        android:id="@+id/btn_bottom_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="播放"
+        app:layout_constraintStart_toStartOf="@+id/tv_bottom_left"
+        app:layout_constraintEnd_toEndOf="@+id/tv_bottom_left"
+        app:layout_constraintTop_toTopOf="@+id/tv_bottom_left"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_bottom_left"/>
+
+    <Button
+        android:id="@+id/btn_bottom_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="播放"
+        app:layout_constraintStart_toStartOf="@+id/tv_bottom_right"
+        app:layout_constraintEnd_toEndOf="@+id/tv_bottom_right"
+        app:layout_constraintTop_toTopOf="@+id/tv_bottom_right"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_bottom_right"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

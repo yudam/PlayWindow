@@ -2,10 +2,13 @@ package com.play.window.render
 
 import android.opengl.GLES20
 import android.opengl.Matrix
+import android.util.Log
 import com.play.window.R
 import com.play.window.model.GLRect
 import com.play.window.render.gles.GlUtil
+import com.play.window.render.model.GlFrameBuffer
 import com.play.window.render.model.TextureInfo
+import com.play.window.temp.GlUtils
 
 /**
  * User: maodayu
@@ -14,40 +17,74 @@ import com.play.window.render.model.TextureInfo
  */
 class GraphProcess {
 
-    private val textureList = mutableListOf<TextureInfo>()
+    private var outPutInfo: TextureInfo? = null
 
-    private val matrix = FloatArray(16).apply {
+    private var unitProcess:UnitProcess? = null
+
+    private var useFBO = true
+
+    fun setFBO(isFBO:Boolean){
+        useFBO = isFBO
+    }
+
+    /**
+     * 通过反转180度来解决FBO导致的图像翻转问题
+     */
+    private val outMatrix = FloatArray(16).apply {
         Matrix.setIdentityM(this, 0)
+        Matrix.rotateM(this, 0, 180f, 0f, 0f, 1f)
     }
 
-    fun setRenderSize(width:Int,height:Int){
-
+    fun setRenderSize(width: Int, height: Int) {
+        if(unitProcess == null){
+            unitProcess = UnitProcess()
+        }
+        unitProcess?.setRenderSize(width, height)
     }
 
-    fun addTextureInfo(info: TextureInfo){
-        textureList.add(info)
-    }
-
-
-    fun draw(){
-        GLES20.glClearColor(0f,0f,0f,0f)
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        textureList.forEach {
-            if (it.mProgram == null) {
-                it.mProgram =  if(it.isOES){
-                    TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-                        GlUtil.readRawResourse(R.raw.simple_oes_shader))
-                } else {
-                    TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-                        GlUtil.readRawResourse(R.raw.simple_fragment_shader))
-                }
+    fun addTextureInfo(info: TextureInfo) {
+        if(useFBO){
+            if(unitProcess == null){
+                unitProcess = UnitProcess()
             }
-            GLES20.glViewport(0,0,it.rect.pw.toInt(),it.rect.ph.toInt())
-            it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
-                matrix,it.isOES)
+            unitProcess?.addTextureInfo(info)
+        } else {
+            outPutInfo = info
         }
     }
 
+
+    fun getOutPutInfo(): TextureInfo? {
+        return outPutInfo
+    }
+
+    fun draw() {
+        GLES20.glClearColor(0f, 0f, 0f, 0f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+        if(useFBO){
+            /**
+             * 在FBO中绘制纹理
+             */
+            unitProcess?.draw()
+
+            outPutInfo = unitProcess?.getOutPutTextureInfo()
+        }
+
+        /**
+         * 输出纹理绘制
+         */
+        outPutInfo?.let {
+            if (it.mProgram == null) {
+                it.mProgram = TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
+                    GlUtil.readRawResourse(R.raw.simple_fragment_shader))
+            }
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            GLES20.glViewport(0, 0, it.rect.pw.toInt(), it.rect.ph.toInt())
+            it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
+                outMatrix, it.isOES)
+        }
+    }
 
     private fun parseVertexArray(rect: GLRect): FloatArray {
 
@@ -55,7 +92,6 @@ class GraphProcess {
         val cy = (rect.cy / rect.ph) * 2 - 1
         val w = (rect.width / rect.pw) * 2
         val h = (rect.height / rect.ph) * 2
-
         val vertex = floatArrayOf(
             cx - w / 2, cy + h / 2,      // bottom left
             cx + w / 2, cy + h / 2,      // bottom right

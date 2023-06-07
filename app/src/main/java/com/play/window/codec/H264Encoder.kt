@@ -5,6 +5,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.util.Log
 import android.view.Surface
+import com.play.window.model.GLRect
 import com.play.window.utils.MediaConfig
 import com.play.window.utils.Utils
 import java.nio.ByteBuffer
@@ -64,9 +65,11 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         mediaFormat.setInteger(MediaFormat.KEY_BITRATE_MODE,config.videoBitRateModel)
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, config.videoFrameRate)
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, config.i_frame_interval)
+
         synchronized(lock){
             mMediaCodec = MediaCodec.createEncoderByType(mMimeType)
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            // createInputSurface函数必须在configure之后和start方法之前调用
             surface =  mMediaCodec.createInputSurface()
             mMediaCodec.start()
             lock.notifyAll()
@@ -85,6 +88,14 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         return surface!!
     }
 
+    fun getRect():GLRect{
+        val width = config.videoWidth.toFloat()
+        val height = config.videoHeight.toFloat()
+        val cx = width/2
+        val cy = height/2
+        return GLRect(cx,cy,width,height,width,height)
+    }
+
 
     fun setListener(listener: IEncoderDataListener?){
         dataListener = listener
@@ -100,6 +111,9 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
             val outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, timeoutUs)
             if (outputBufferIndex >= 0) {
                 val byteBuffer = mMediaCodec.getOutputBuffer(outputBufferIndex)
+
+                Log.i(TAG, "onFrame: "+byteBuffer?.position()+"    limit : "+byteBuffer?.limit())
+
                 if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     Log.i(TAG, "BUFFER_FLAG_END_OF_STREAM: ")
                 } else if ((mBufferInfo.flags and MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) != 0) {

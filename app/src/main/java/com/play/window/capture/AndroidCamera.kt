@@ -20,12 +20,13 @@ class AndroidCamera : ICamera {
      */
     private var camera: Camera? = null
     private val rtmpUrl = "rtmp://172.16.0.97:1935/live/room"
-    private var preViewSize :Camera.Size? = null
+    private var preViewSize: Camera.Size? = null
 
+    private var firstFind :Boolean= true
 
     override fun startPublish() {
         preViewSize?.let {
-            BaseNative.startPublic(rtmpUrl,1920,1080)
+            BaseNative.startPublic(rtmpUrl, 1920, 1080)
         }
     }
 
@@ -33,9 +34,9 @@ class AndroidCamera : ICamera {
         camera = Camera.open(getCameraInfo())
         camera?.setPreviewTexture(surface)
         camera?.setPreviewCallback { data, camera ->
-            BaseNative.setVideoData(data,data.size)
+            BaseNative.setVideoData(data, data.size)
         }
-        BaseNative.startPublic(rtmpUrl,1920,1080)
+        BaseNative.startPublic(rtmpUrl, 1920, 1080)
         camera?.startPreview()
     }
 
@@ -47,13 +48,15 @@ class AndroidCamera : ICamera {
         camera?.setPreviewDisplay(surface)
         camera?.setDisplayOrientation(90)
         camera?.setPreviewCallback { data, camera ->
-
-          val size =   parameters?.previewSize?:return@setPreviewCallback
-
-            Log.i("MDY", "width: "+size.width+"  height : "+size.height+"   data :" +data.size)
+            if(firstFind){
+                firstFind = false
+                val rate = camera.parameters.previewFrameRate
+                Log.i("MDY", "openCamera: "+rate)
+            }
             BaseNative.setVideoData(data, data.size)
         }
-        BaseNative.startPublic(rtmpUrl,1920,1080)
+        getFps()
+        BaseNative.startPublic(rtmpUrl, 1920, 1080)
         camera?.startPreview()
     }
 
@@ -63,7 +66,6 @@ class AndroidCamera : ICamera {
         camera?.release()
         camera = null
     }
-
 
 
     /**
@@ -77,5 +79,18 @@ class AndroidCamera : ICamera {
             if (cameraInfo.facing == facing) return cameraId
         }
         return -1
+    }
+
+    private fun getFps(){
+      val frameRateList =   camera?.parameters?.supportedPreviewFrameRates
+        frameRateList?.forEach {
+            Log.i("MDY", "supportedPreviewFrameRates: " + it)
+        }
+
+
+      val fpsRangeList =   camera?.parameters?.supportedPreviewFpsRange
+        fpsRangeList?.forEach {
+            Log.i("MDUY", "supportedPreviewFpsRange: "+it[0]+"   "+it[1])
+        }
     }
 }

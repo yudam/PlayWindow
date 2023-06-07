@@ -47,6 +47,7 @@ class VideoPlayer(uri: String, surface: Surface) {
 
        exoPlayer.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, format, mediaFormat ->
 
+
        }
 
         // 5.监听播放过程中的变化
@@ -70,4 +71,5 @@ class VideoPlayer(uri: String, surface: Surface) {
             "playWhenReady:%s playbackState:%s item:%s",
             exoPlayer?.playWhenReady, playbackStateString, exoPlayer?.currentMediaItemIndex)
     }
+
 }

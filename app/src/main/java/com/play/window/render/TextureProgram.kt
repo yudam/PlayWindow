@@ -58,7 +58,7 @@ class TextureProgram(vertex: String, fragment: String) {
         } else {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tetxureId)
         }
-        GlUtil.checkGlError("glBindTexture:"+tetxureId)
+        GlUtil.checkGlError("glBindTexture:"+tetxureId +"   oes : "+isOES)
         setUniform1i(mainTexture, 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GlUtil.checkGlError("glDrawArrays:")

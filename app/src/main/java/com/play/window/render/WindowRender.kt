@@ -11,6 +11,7 @@ import android.view.Surface
 import android.view.Window
 import com.play.window.R
 import com.play.window.WindowApp
+import com.play.window.capture.VideoParse
 import com.play.window.capture.VideoPlayer
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
@@ -18,6 +19,7 @@ import com.play.window.render.gles.EglCore
 import com.play.window.render.gles.EglCore2
 import com.play.window.render.gles.GlUtil
 import com.play.window.render.model.BitmapScene
+import com.play.window.render.model.Transtion
 import com.play.window.temp.GlUtils
 
 /**
@@ -34,6 +36,8 @@ class WindowRender() {
     private val surfaceMap = mutableMapOf<Int, DrawSurface?>()
     private var previewSurfaceId = 0
 
+    private var encoderSurfaceId = -11
+
 
     init {
         mEglCore = EglCore()
@@ -47,7 +51,7 @@ class WindowRender() {
     /**
      * 添加Surface
      */
-    fun addEncoderSurface(surface: Surface){
+    fun addEncoderSurface(surface: Surface) {
 
     }
 
@@ -55,36 +59,65 @@ class WindowRender() {
      * 添加SurfaceTexture
      */
     fun addDisplaySurface(info: DisplayInfo) {
-        val params = createTextureInfo(info)
-        surfaceList.add(params)
-        Log.i(WindowApp.TAG, "addDisplaySurface: " + params.texture)
-        VideoPlayer(info.url, Surface(params.surfaceTexture))
-        val drawSurface = DrawSurface(mEglCore?.sharedContext)
-        drawSurface.addDisplaySurface(info)
-        previewSurfaceId = info.surfaceId
+
+        var param = VideoParse.getSurfaceParam(info.url)
+        Log.i("MDY", "addDisplaySurface: "+param)
+        if (param == null) {
+            param = createTextureInfo(info)
+            VideoParse.addSurfaceParam(info.url!!, param)
+            VideoPlayer(info.url!!, Surface(param.surfaceTexture))
+            previewSurfaceId = info.surfaceId
+        } else {
+            info.mTetxureId = param.texture
+            return
+        }
+        val drawSurface = DrawSurface(mEglCore?.sharedContext).apply {
+            setSurface(info.surfaceTexture)
+            setRenderSize(info.rect.pw.toInt(), info.rect.ph.toInt())
+            setFps(info.fps)
+        }
+        drawSurface.scheduleEvent(mEglCore!!)
+        drawSurface.addDisplaySurface(info.mTetxureId!!, info.rect)
         surfaceMap[info.surfaceId] = drawSurface
     }
 
-    fun setEncoderSurface(surface: Surface){
-        val preInfo = surfaceMap[previewSurfaceId]?.getInfo()
-        Log.i(WindowApp.TAG, "preInfo: "+preInfo.toString())
-        if (preInfo != null) {
-            val data = preInfo.copyInfo(null)
-            data.surface = surface
-            Log.i(WindowApp.TAG, "data: "+data.toString())
-            val drawSurface = DrawSurface(mEglCore?.sharedContext)
-            drawSurface.addDisplaySurface(data)
+    /**
+     * 添加转场动画
+     */
+    fun addTransition(nextInfo: DisplayInfo) {
+        val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
+        val nextInfo = surfaceMap[nextInfo.surfaceId]?.getTextureInfo()
+        if(preInfo == null || nextInfo == null) return
+        val transtion = Transtion(preInfo, nextInfo, false)
+        surfaceMap[previewSurfaceId]?.setTranstion(transtion)
+    }
+
+
+    fun addOffScreen() {
+
+    }
+
+    /**
+     * 添加编码的Surface，这里的surface推荐是输出编码的surface，通过获取预览界面的输出纹理
+     * 添加到编码对应的DrawSurface中，直接绘制然后编码
+     */
+    fun setEncoderSurface(surface: Any?, rect: GLRect) {
+        val drawSurface = surfaceMap[previewSurfaceId] ?: return
+        val renderInfo = drawSurface.getTextureInfo() ?: return
+        val encoderSurface = DrawSurface(mEglCore?.sharedContext).apply {
+            setSurface(surface)
+            setRenderSize(rect.pw.toInt(), rect.ph.toInt())
+            setFps(drawSurface.getFps())
+            setEncode(true)
         }
+        encoderSurface.scheduleEvent(mEglCore!!)
+        encoderSurface.addDisplaySurface(renderInfo.texture, rect, renderInfo.isOES)
+        surfaceMap[encoderSurfaceId] = encoderSurface
     }
 
 
     fun copyPreViewSurface(surfaceTexture: SurfaceTexture) {
-        val preInfo = surfaceMap[previewSurfaceId]?.getInfo()
-        if (preInfo != null) {
-            val data = preInfo.copyInfo(surfaceTexture)
-            val drawSurface = DrawSurface(mEglCore?.sharedContext)
-            drawSurface.addDisplaySurface(data)
-        }
+
     }
 
     fun addBitmap(scene: BitmapScene) {

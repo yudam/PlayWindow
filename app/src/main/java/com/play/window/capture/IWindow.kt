@@ -17,6 +17,10 @@ interface IWindow {
 
     fun stopPublish()
 
+    fun startRecord(path:String)
+
+    fun stopRecord()
+
     fun playVideo(surfaceTexture: SurfaceTexture):Int
 
     fun playVideo(info: DisplayInfo):Int

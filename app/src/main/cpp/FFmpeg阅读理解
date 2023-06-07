@@ -37,3 +37,22 @@ FFmpeg中知识点：
 1。 不包含B帧的视频，其每一帧的PTS和DTS都相同，B帧属于双向预测帧，需要其前和后的帧，所以其解码时间和显示时间不一致。
 
 
+
+1. H264码流分为两种格式：AnnexB和AVCC格式。
+
+AnnexB格式： [start code]NALU | [start code]NALU | [start code]NALU
+
+每个帧前面都有0x00 00 00 01 或者0x00 00 01作为起始码。SPS和PPS作为一类NALU存储在码流中，
+一般在码流的最前面。
+
+AVCC格式：([extradata]) | ([length]NALU) | ([length]NALU)
+
+没有起始码，每帧最前面的4个字节表示帧长度，这种格式中的NALU一般没有SPS和PPS等参数信息，参数
+信息存储在extradata中。在ffmpeg中解析Mp4文件后，sps和pps信息存储在avStream->codecpar->extradata
+中。
+
+
+在FFMPEG的extradata数组中包含了sps和pps的数据，数据由一些固定参数、sps和pps的相关数据计算得出，
+
+
+

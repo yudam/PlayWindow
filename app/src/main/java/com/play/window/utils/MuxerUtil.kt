@@ -46,9 +46,9 @@ class MuxerUtil(val videoPath: String) {
     }
 
 
-    fun writeSampleData(dataBuffer: ByteBuffer, bufferInfo: MediaCodec.BufferInfo, isAudio: Boolean = false) {
+    fun writeSampleData(dataBuffer: ByteBuffer?, bufferInfo: MediaCodec.BufferInfo?, isAudio: Boolean = false) {
         //  if (!isStart) return
-        if (isStop) return
+        if (isStop || dataBuffer == null || bufferInfo == null) return
         if (isAudio) {
             Log.i("MuxerUtil", "writeSampleData: audio")
             mMuxer.writeSampleData(mAudioTrackIndex, dataBuffer, bufferInfo)

@@ -125,6 +125,7 @@ void H264Encoder::startPublish(const char *url, int width, int height) {
     logi("   num   : %d ,   den  :  %d", avStream->time_base.num, avStream->time_base.den);
 
     isInit = true;
+
 }
 
 

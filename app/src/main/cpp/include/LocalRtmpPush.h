@@ -6,6 +6,7 @@
 #define PLAYWINDOW_LOCALRTMPPUSH_H
 
 #include <iostream>
+#include <string>
 #include <android/log.h>
 
 extern "C" {

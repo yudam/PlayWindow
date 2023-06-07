@@ -53,10 +53,6 @@ public:
 
     int sendVideoHeader(uint8_t *sps,uint8_t *pps,int sps_len,int pps_len);
 
-    int sendVideoPacket(uint8_t *data, int len, long pts, bool isCsd);
-
-    int sendAudioPacket(uint8_t *data, int len, long pts, bool isCsd);
-
     void release();
 
 private:
@@ -66,6 +62,11 @@ private:
     int64_t startTime = 0;
 
     AVPacket *avPacket = nullptr;
+
+    int sendVideoPacket(uint8_t *data, int len, long pts);
+    int sendAudioPacket(uint8_t *data, int len, long pts);
+    int putVideoHeader(uint8_t * spsBuffer,int spsLen,uint8_t *ppsBuffer,int ppsLen);
+    int putAudioHeader(uint8_t * adtsBuffer,int adtsLen);
 
 };
 
