@@ -21,6 +21,7 @@ import com.play.window.render.gles.GlUtil
 import com.play.window.render.model.BitmapScene
 import com.play.window.render.model.Transtion
 import com.play.window.temp.GlUtils
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * User: maodayu
@@ -37,6 +38,8 @@ class WindowRender() {
     private var previewSurfaceId = 0
 
     private var encoderSurfaceId = -11
+
+    private val shareLock = ReentrantLock()
 
 
     init {
@@ -61,7 +64,6 @@ class WindowRender() {
     fun addDisplaySurface(info: DisplayInfo) {
 
         var param = VideoParse.getSurfaceParam(info.url)
-        Log.i("MDY", "addDisplaySurface: "+param)
         if (param == null) {
             param = createTextureInfo(info)
             VideoParse.addSurfaceParam(info.url!!, param)
@@ -71,7 +73,7 @@ class WindowRender() {
             info.mTetxureId = param.texture
             return
         }
-        val drawSurface = DrawSurface(mEglCore?.sharedContext).apply {
+        val drawSurface = DrawSurface(mEglCore?.sharedContext,shareLock).apply {
             setSurface(info.surfaceTexture)
             setRenderSize(info.rect.pw.toInt(), info.rect.ph.toInt())
             setFps(info.fps)
@@ -104,7 +106,7 @@ class WindowRender() {
     fun setEncoderSurface(surface: Any?, rect: GLRect) {
         val drawSurface = surfaceMap[previewSurfaceId] ?: return
         val renderInfo = drawSurface.getTextureInfo() ?: return
-        val encoderSurface = DrawSurface(mEglCore?.sharedContext).apply {
+        val encoderSurface = DrawSurface(mEglCore?.sharedContext,shareLock).apply {
             setSurface(surface)
             setRenderSize(rect.pw.toInt(), rect.ph.toInt())
             setFps(drawSurface.getFps())
@@ -125,12 +127,20 @@ class WindowRender() {
         surfaceMap[scene.surfaceId]?.addBitmap(texture, scene.rect)
     }
 
-
+    /**
+     * 当同步Surfacetexture中画面到绑定的纹理时，有可能其他啊的Surface正在使用当前纹理进行绘制，
+     * 可能会出现冲突，需要加锁
+     */
     private fun createTextureInfo(info: DisplayInfo): SurfaceParam {
         val textureId = GlUtils.getTexture(true)
         val surface = SurfaceTexture(textureId)
         surface.setOnFrameAvailableListener {
-            it.updateTexImage()
+            shareLock.lock()
+            try {
+                it.updateTexImage()
+            } finally {
+                shareLock.unlock()
+            }
         }
         info.mTetxureId = textureId
         return SurfaceParam(textureId, surface)

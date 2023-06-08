@@ -9,21 +9,22 @@ import com.play.window.render.gles.GlUtil
 import com.play.window.render.model.GlFrameBuffer
 import com.play.window.render.model.TextureInfo
 import com.play.window.temp.GlUtils
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * User: maodayu
  * Date: 2023/5/25
  * Time: 16:51
  */
-class GraphProcess {
+class GraphProcess(val shareLock: ReentrantLock) {
 
     private var outPutInfo: TextureInfo? = null
 
-    private var unitProcess:UnitProcess? = null
+    private var unitProcess: UnitProcess? = null
 
     private var useFBO = true
 
-    fun setFBO(isFBO:Boolean){
+    fun setFBO(isFBO: Boolean) {
         useFBO = isFBO
     }
 
@@ -36,15 +37,15 @@ class GraphProcess {
     }
 
     fun setRenderSize(width: Int, height: Int) {
-        if(unitProcess == null){
+        if (unitProcess == null) {
             unitProcess = UnitProcess()
         }
         unitProcess?.setRenderSize(width, height)
     }
 
     fun addTextureInfo(info: TextureInfo) {
-        if(useFBO){
-            if(unitProcess == null){
+        if (useFBO) {
+            if (unitProcess == null) {
                 unitProcess = UnitProcess()
             }
             unitProcess?.addTextureInfo(info)
@@ -62,27 +63,37 @@ class GraphProcess {
         GLES20.glClearColor(0f, 0f, 0f, 0f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        if(useFBO){
-            /**
-             * 在FBO中绘制纹理
-             */
-            unitProcess?.draw()
-
-            outPutInfo = unitProcess?.getOutPutTextureInfo()
-        }
-
         /**
-         * 输出纹理绘制
+         * 这里的锁是为了防止纹理的读写出现的安全问题
          */
-        outPutInfo?.let {
-            if (it.mProgram == null) {
-                it.mProgram = TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-                    GlUtil.readRawResourse(R.raw.simple_fragment_shader))
+        shareLock.lock()
+
+        try {
+
+            if (useFBO) {
+                /**
+                 * 在FBO中绘制纹理
+                 */
+                unitProcess?.draw()
+
+                outPutInfo = unitProcess?.getOutPutTextureInfo()
             }
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-            GLES20.glViewport(0, 0, it.rect.pw.toInt(), it.rect.ph.toInt())
-            it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
-                outMatrix, it.isOES)
+
+            /**
+             * 输出纹理绘制
+             */
+            outPutInfo?.let {
+                if (it.mProgram == null) {
+                    it.mProgram = TextureProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
+                        GlUtil.readRawResourse(R.raw.simple_fragment_shader))
+                }
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+                GLES20.glViewport(0, 0, it.rect.pw.toInt(), it.rect.ph.toInt())
+                it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
+                    outMatrix, it.isOES)
+            }
+        } finally {
+            shareLock.unlock()
         }
     }
 

@@ -15,6 +15,7 @@ import com.play.window.render.gles.OffscreenSurface
 import com.play.window.render.gles.WindowSurface
 import com.play.window.render.model.TextureInfo
 import com.play.window.render.model.Transtion
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * User: maodayu
@@ -22,7 +23,7 @@ import com.play.window.render.model.Transtion
  * Time: 09:56
  * 处理Surface的渲染,每一个Surface都有对应的DrawSurface
  */
-class DrawSurface(val shareContext: EGLContext?) : Runnable {
+class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : Runnable {
 
     private var mLooper: Looper? = null
     private var drawHandler: Handler? = null
@@ -73,7 +74,7 @@ class DrawSurface(val shareContext: EGLContext?) : Runnable {
 
     fun scheduleEvent(eglCore: EglCore) {
         mEglCore  = eglCore
-        graphProcess = GraphProcess()
+        graphProcess = GraphProcess(shareLock)
         drawHandler = object : Handler(Looper.myLooper()!!) {
             override fun handleMessage(msg: Message) {
                 when (msg.what) {

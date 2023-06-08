@@ -5,11 +5,19 @@
 转场动画的思路在于：在预览的DrawSurface中通过FBO来一次绘制两个场景的纹理，然后在渲染到预览上，直到动画结束在
 继续进行原先的渲染。目前转场动画先不急着做，渲染框架需要慢慢完善。
 
+MediaMuxer的使用需要注意的部分：
+
+ * MediaMuxer混音时，需要先写入视频的I帧，在写入音频否则不会生成对应的mp4文件
+ * MediaMuxer当前只支持AAC压缩格式的音频
+ * MediaMuxer混合H264和AAC生成Mp4时，AAC编码后数据不需要添加ADTS头部
+ * AAC编码后数据生成aac文件时，需要添加ADTS头部
+
 
 1. 因为纹理需要在不同的DrawSurface中进行复用，所以需要被复用的DrawSurface中的纹理，那么对应的DrawSurface
    就必须和WindowRender在同一个线程，否则纹理会无法共享。
 
-2.
+2. MediaCodec采用AnnexB格式的码流来编码视频流，一系列的NALU之间通过StartCode来分隔，回首先发送sps和pps类型
+   的NALU
 
 3.
 

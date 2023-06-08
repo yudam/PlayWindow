@@ -20,8 +20,10 @@ import java.nio.ByteBuffer
  * 如果通过MediaCodec创建InputSurface来当作输入，必须在MediaCodec调用config之后才可以创建，
  * 且MediaFormat中color format必须设置为COLOR_FormatSurface
  *
+ * MediaCodec默认采用的是AnnexB格式的码流，又连续的NALU单元组成，通过startcode来分隔NALU,
+ * MediaCodec从输出队列中读取的ByteBuffer以00000001开始。
  *
- *  H264编码，
+ * H264编码，
  */
 class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
 
@@ -156,6 +158,9 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                         it.limit(mBufferInfo.offset + mBufferInfo.size)
                         it.get(videoArray,mBufferInfo.offset,mBufferInfo.size)
                     }
+
+                    Log.i(TAG, "onFrame: "+Utils.bytesToHex(videoArray.copyOfRange(0,4)))
+
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false)
 
 

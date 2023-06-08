@@ -28,6 +28,8 @@ class MuxerUtil(val videoPath: String) {
     private var mAudioTrackIndex: Int = -1
     private var mVideoTrackIndex: Int = -1
 
+    private var isWriteIFrame = false
+
 
     fun addTrack(mediaFormat: MediaFormat, isAudio: Boolean = false) {
         Log.i("MuxerUtil", "isAudio: " + isAudio)
@@ -36,21 +38,33 @@ class MuxerUtil(val videoPath: String) {
         } else {
             mVideoTrackIndex = mMuxer.addTrack(mediaFormat)
         }
+    }
 
+    fun startMuxer(){
+        if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1) {
+            mMuxer.start()
+            isStart = true
+        }
+    }
 
-        mMuxer.start()
-//        if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1) {
-//            mMuxer.start()
-//            isStart = true
-//        }
+    fun writeData(dataBuffer: ByteBuffer?, bufferInfo: MediaCodec.BufferInfo?, isAudio: Boolean = false){
+        if(!isWriteIFrame){
+            if(bufferInfo?.flags == MediaCodec.BUFFER_FLAG_KEY_FRAME){
+                isWriteIFrame = true
+                writeSampleData(dataBuffer, bufferInfo, isAudio)
+            }
+        } else {
+            writeSampleData(dataBuffer, bufferInfo, isAudio)
+        }
     }
 
 
     fun writeSampleData(dataBuffer: ByteBuffer?, bufferInfo: MediaCodec.BufferInfo?, isAudio: Boolean = false) {
         //  if (!isStart) return
         if (isStop || dataBuffer == null || bufferInfo == null) return
+
         if (isAudio) {
-            Log.i("MuxerUtil", "writeSampleData: audio")
+            Log.i("MuxerUtil", "wr iteSampleData: audio")
             mMuxer.writeSampleData(mAudioTrackIndex, dataBuffer, bufferInfo)
         } else {
             Log.i("MuxerUtil", "writeSampleData: video ")
@@ -59,10 +73,8 @@ class MuxerUtil(val videoPath: String) {
     }
 
 
-    @Synchronized
     fun release() {
         Log.i("MuxerUtil", "release: ")
-        //if (isStop) return
         isStop = true
         mMuxer.stop()
         mMuxer.release()
