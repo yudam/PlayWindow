@@ -206,15 +206,13 @@ int RtmpFlow::sendVideoHeader(uint8_t *sps, uint8_t *pps, int sps_len, int pps_l
  */
 int RtmpFlow::sendVideoPacket(uint8_t *data, int len, long pts) {
     logi("sendVideoPacket    0");
+    // 这里将NALU的前四个字节替换成NALU的长度
     if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01) {
-        data[0] = 0x00;
-        data[1] = 0x00;
-        data[2] = 0x00;
-        data[3] = 0x00;
-    } else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01) {
-        data[0] = 0x00;
-        data[1] = 0x00;
-        data[2] = 0x00;
+        len -= 4;
+        data[0] = (len >> 24) & 0xFF;
+        data[1] = (len >> 16) & 0xFF;
+        data[2] = (len >> 8) & 0xFF;
+        data[3] = len & 0xFF;
     }
 
     avPacket->data = data;

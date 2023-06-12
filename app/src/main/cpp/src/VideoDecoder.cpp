@@ -137,8 +137,14 @@ void VideoDecoder::scaleFrameData(AVFrame *avFrame) {
               rgbFrame->data,rgbFrame->linesize);
 }
 
+/**
+ * avFrame->linesize 表示每行的字节数，一般每一行要求64或者128位对齐，不够的在后面添加0x00，
+ * 所以linesize一般大于图像每行的字节数
+ *
+ */
 void VideoDecoder::onFrameAvailable(AVFrame *avFrame) {
     scaleFrameData(avFrame);
+    ANativeWindow * aNativeWindow =   ANativeWindow_fromSurface(jni_env,java_surface);
 }
 
 

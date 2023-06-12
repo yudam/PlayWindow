@@ -1,5 +1,8 @@
 
 1. AVFormatContext： 对于容器和媒体文件层次的抽象，比如特定格式的媒体文件：MP4、flv、mov等
+
+
+
 2. AVStream：
 3. AVCodecContext、AVCodec:
 4. AVPacket、AVFrame：
@@ -31,6 +34,10 @@ FFmpeg中知识点：
 
 
 7. pcm音频通过ffmpeg编码时，要注意Android中采用的采样位数和ffmpeg中不一致，需要进行一次转码操作
+
+
+8. av_interleaved_write_frame函数用于发送一帧编码的数据，内部实现的逻辑不清楚，也就是说如如果我们要直接写入
+编码后的数据给av_interleaved_write_frame函数，那就必须组装好数据，比如写入头部的数据，每一帧数据的格式。
 
 音视频小知识点：
 

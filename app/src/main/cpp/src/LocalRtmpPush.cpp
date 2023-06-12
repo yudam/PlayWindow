@@ -7,6 +7,19 @@
 #define logi(...) __android_log_print(ANDROID_LOG_INFO,"LocalRtmpPush",__VA_ARGS__)
 #define loge(...) __android_log_print(ANDROID_LOG_ERROR,"LocalRtmpPush",__VA_ARGS__)
 
+static bool timeout = false;
+static bool abort_request = false;
+
+/**
+ * 回调函数，在返回1 时会产生中断，阻塞网络过程
+ */
+static int custom_interrupt_callback(void *arg) {
+    if (timeout || abort_request) {
+        return 1;
+    }
+    return 0;
+}
+
 /**
  * 本地视频推送的流程就是先解码，然后再重新编码指定格式推流，中间涉及到时间基的转换
  */
@@ -25,8 +38,12 @@ int LocalRtmpPush::open(const char *infilename, const char *outfilename) {
         loge("avformat_open_input");
         return ret;
     }
+    // 主要负责媒体信息的分析工作
     avformat_find_stream_info(in_avf_context, nullptr);
-
+    // ffmpeg提供了一个函数用于打印解析到的媒体信息
+    av_dump_format(in_avf_context, 0, in_avf_context->filename, 0);
+    // 获取指向特定流的index
+    av_find_best_stream(in_avf_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 
     /**
      * 2. 创建输出流上下文
@@ -73,6 +90,7 @@ int LocalRtmpPush::open(const char *infilename, const char *outfilename) {
             return ret;
         }
     }
+    out_avf_context->interrupt_callback.callback = custom_interrupt_callback;
 
 
     for (int i = 0; i < in_avf_context->nb_streams; i++) {
@@ -128,6 +146,10 @@ void LocalRtmpPush::push() {
         if (avPacket->stream_index != video_index && avPacket->stream_index != audio_index) {
             loge("stream_index failed");
             return;
+        }
+
+        if (avPacket->flags & AV_PKT_FLAG_KEY) {
+            logi("当前帧是关键帧");
         }
 
         /**

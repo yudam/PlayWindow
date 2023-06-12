@@ -9,6 +9,8 @@ import android.os.Message
 import android.util.Log
 import com.google.android.exoplayer2.audio.AudioGet
 import com.play.window.WindowApp
+import com.play.window.codec.AACEncoder
+import com.play.window.codec.IEncoderDataListener
 import java.nio.ByteBuffer
 
 /**
@@ -16,7 +18,7 @@ import java.nio.ByteBuffer
  * Date: 2023/4/24
  * Time: 10:34
  */
-class AudioProcess : HandlerThread("AudioProcess") {
+class AudioProcess(val listener: IEncoderDataListener) : HandlerThread("AudioProcess") {
 
     /**
      * 采样率
@@ -36,6 +38,8 @@ class AudioProcess : HandlerThread("AudioProcess") {
     private var audioTrack: AudioTrack? = null
 
     private var audioHandler: Handler? = null
+
+    private var aacEncoder: AACEncoder? = null
 
     override fun onLooperPrepared() {
         super.onLooperPrepared()
@@ -85,7 +89,7 @@ class AudioProcess : HandlerThread("AudioProcess") {
         }
         audioData.clear()
         Log.i(WindowApp.TAG, "write: " + audioData.remaining())
-       val ret =  audioTrack?.write(audioData, buffSize, AudioTrack.WRITE_BLOCKING)
+        val ret = audioTrack?.write(audioData, buffSize, AudioTrack.WRITE_BLOCKING)
         Log.i(WindowApp.TAG, "ret: $ret")
     }
 

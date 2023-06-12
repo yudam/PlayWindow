@@ -12,13 +12,16 @@ import android.os.HandlerThread
 import android.os.Message
 import android.util.Log
 import android.view.Surface
+import com.google.android.exoplayer2.audio.AudioGet
 import com.play.window.BaseNative
 import com.play.window.WindowApp
+import com.play.window.codec.AACEncoder
 import com.play.window.codec.H264Encoder
 import com.play.window.codec.IEncoderDataListener
 import com.play.window.codec.MediaPacket
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
+import com.play.window.muxer.RecordMedia
 import com.play.window.render.SurfaceParam
 import com.play.window.render.WindowRender
 import com.play.window.render.gles.EglCore
@@ -41,28 +44,32 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
     private var windowHandler: Handler? = null
     private var windowRender:WindowRender? = null
     private var h264Encoder:H264Encoder? = null
+    private var aacEncoder:AACEncoder? = null
     private val lock = Object()
 
-    private var muxerUtil:MuxerUtil? = null
+    private var record: RecordMedia? = null
 
     init {
         start()
+        AudioGet.registerListener { buffer, size ->
+            aacEncoder?.frameBuffer(buffer)
+        }
     }
 
     private val listener = object :IEncoderDataListener{
         override fun notifyAvailableData(packet: MediaPacket) {
-            Log.i(WindowApp.TAG, "notifyAvailableData: "+packet.data?.remaining()+"  pts: "+packet.pts)
-            muxerUtil?.writeSampleData(packet.data,packet.info,true)
+            Log.i(WindowApp.TAG, "notifyAvailableData: "+packet.data?.remaining()+"  pts: "+packet.pts+"  isVideo:"+packet.isVideo)
+            record?.addPacket(packet)
         }
 
         override fun notifyMediaFormat(format: MediaFormat, isVideo: Boolean) {
-            muxerUtil?.addTrack(format,isVideo)
+            record?.addTrack(format,!isVideo)
         }
 
         override fun notifyHeaderData(packet: MediaPacket) {
             Log.i(WindowApp.TAG, "sps: "+packet.csd0?.remaining()+
                 "  pps:"+packet.csd1?.remaining()+"  pts:" + packet.pts)
-            muxerUtil?.writeSampleData(packet.data,packet.info,true)
+            record?.addPacket(packet)
         }
 
         override fun notifyEnd() {
@@ -88,16 +95,21 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
 
                         RECORDAV -> {
                             val path = msg.obj as String
-                            muxerUtil = MuxerUtil(path)
+                            record = RecordMedia(path)
                             h264Encoder =  H264Encoder(MediaConfig()).apply {
                                 setListener(listener)
                                 windowRender?.setEncoderSurface( getEncoderSurface(),getRect())
                             }
+
+                            aacEncoder = AACEncoder()
+                            aacEncoder?.setListener(listener)
+                            aacEncoder?.start()
                         }
 
                         STOPRECOR -> {
-                            muxerUtil?.release()
+                            record?.release()
                             h264Encoder?.stopEncoder()
+                            aacEncoder?.stopEncoder()
                         }
 
                         PLAYVIDEO -> {
@@ -106,7 +118,6 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                         }
 
                         PLAYAUDIO -> {
-                           // val process = AudioProcess()
                         }
 
                         ADDBITMAP -> {

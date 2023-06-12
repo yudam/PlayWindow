@@ -21,9 +21,13 @@ class VideoDecoder {
 
 public:
     void initdecoder();
+
     void loopdecoder();
-    void onFrameAvailable(AVFrame * avFrame);
-    void scaleFrameData(AVFrame * avFrame);
+
+    void onFrameAvailable(AVFrame *avFrame);
+
+    void scaleFrameData(AVFrame *avFrame);
+
     void release();
 
 private:
@@ -39,14 +43,21 @@ private:
     AVPacket *avPacket = nullptr;
     AVFrame *avFrame = nullptr;
 
-    SwsContext * swsContext = nullptr;
+    SwsContext *swsContext = nullptr;
     AVFrame *rgbFrame = nullptr;
     uint8_t *frameBuffer = nullptr;
 
+
+    JNIEnv *jni_env;
+    jobject java_surface;
+
     void decoderMethod();
 
-    uint8_t* getFrameSize();
+    uint8_t *getFrameSize();
+
     void initScale();
+
+
 };
 
 

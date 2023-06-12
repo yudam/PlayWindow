@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
  *
  * 音频编码时比特率设置高一些，太低的话会导致杂音严重
  */
-class AACEncoder() :Thread("AACEncoder"){
+class AACEncoder() : Thread("AACEncoder") {
 
     private lateinit var aacEncoder: MediaCodec
     private var isEncoder = true
@@ -28,7 +28,7 @@ class AACEncoder() :Thread("AACEncoder"){
         initConfig()
     }
 
-   private fun initConfig() {
+    private fun initConfig() {
         val audioFormat = MediaFormat.createAudioFormat(AAC_MIME_TYPE, 44100, 2)
         // 录制音频时，比特率太低会导致杂音严重
         audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, 160000)
@@ -38,7 +38,7 @@ class AACEncoder() :Thread("AACEncoder"){
         aacEncoder = MediaCodec.createEncoderByType(AAC_MIME_TYPE)
         aacEncoder.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         aacEncoder.start()
-       onDrain()
+        onDrain()
     }
 
 
@@ -51,9 +51,9 @@ class AACEncoder() :Thread("AACEncoder"){
                 val inputBuffer = aacEncoder.getInputBuffer(inputerBufferIndex)
                 dataBuffer?.let {
                     inputBuffer?.clear()
-                    Log.i(TAG, "size: "+it.remaining()+"    input:"+inputBuffer?.remaining())
+                    //Log.i(TAG, "size: "+it.remaining()+"    input:"+inputBuffer?.remaining())
                     inputBuffer?.put(it)
-                    aacEncoder.queueInputBuffer(inputerBufferIndex, 0, dataBuffer.capacity(), System.nanoTime()/1000, 0)
+                    aacEncoder.queueInputBuffer(inputerBufferIndex, 0, dataBuffer.capacity(), System.nanoTime() / 1000, 0)
                 }
             }
 
@@ -65,13 +65,15 @@ class AACEncoder() :Thread("AACEncoder"){
             if (outputBufferIndex >= 0) {
                 if ((bufferInfo.flags and MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) != 0) {
                     //MediaFormat发生改变，通常只会在开始调用一次，可以设置混合器的轨道
-                    Log.i(TAG, "INFO_OUTPUT_FORMAT_CHANGED: "+dataListener)
+                    Log.i(TAG, "INFO_OUTPUT_FORMAT_CHANGED: " + dataListener)
                     val audioForamt = aacEncoder.outputFormat
                     val adts = audioForamt.getByteBuffer("csd-0")
                     Log.i(TAG, "adts: " + Utils.bytesToHex(adts?.array()))
                     adts?.array()?.forEachIndexed { index, byte ->
                         Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
+
+                    Log.i("MDY", "onDrain: "+adts?.array().toString())
                     dataListener?.notifyMediaFormat(audioForamt, false)
                 } else if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     Log.i(TAG, "BUFFER_FLAG_END_OF_STREAM: ")
@@ -85,19 +87,22 @@ class AACEncoder() :Thread("AACEncoder"){
                         it.limit(bufferInfo.offset + bufferInfo.size)
                         it.get(aacData, 0, bufferInfo.size)
 
+                        val avPts = System.nanoTime() / 1000
                         val copy = MediaCodec.BufferInfo()
                         copy.set(bufferInfo.offset, bufferInfo.size,
-                            bufferInfo.presentationTimeUs, bufferInfo.flags)
-                        val copyBuffer =  ByteBuffer.allocateDirect(bufferInfo.size)
-                        copyBuffer.put(aacData,0,bufferInfo.size)
+                            avPts, bufferInfo.flags)
+                        val copyBuffer = ByteBuffer.allocateDirect(bufferInfo.size)
+                        copyBuffer.put(aacData, 0, bufferInfo.size)
                         copyBuffer.clear()
 
                         val pkt = MediaPacket().apply {
                             info = copy
                             data = copyBuffer
-                            pts = info!!.presentationTimeUs
+                            pts = avPts
                             isAudio = true
                         }
+
+                        //Log.i("MDY", "onDrain: "+pkt.data?.remaining()+"  pts:"+pkt.pts)
                         dataListener?.notifyAvailableData(pkt)
                     }
                     aacEncoder.releaseOutputBuffer(outputBufferIndex, false)
@@ -108,10 +113,11 @@ class AACEncoder() :Thread("AACEncoder"){
         aacEncoder.release()
     }
 
-    fun frameBuffer(packet: MediaPacket) {
+    fun frameBuffer(bytedata: ByteBuffer) {
         // put 将元素插入到队列尾部，空间不足时可等待插入
-        mBufferPool.put(packet.data)
-        Log.i(TAG, "frameBuffer in : " + mBufferPool.size)
+        if(isEncoder){
+            mBufferPool.put(bytedata)
+        }
 /*      add 在由于容量限制导无法插入时，会抛出 IllegalStateException 异常
         mBufferPool.add(byteBuffer)
         offer 插入元素到队列的尾部，返回插入结果，可以设置超时时间
@@ -122,6 +128,10 @@ class AACEncoder() :Thread("AACEncoder"){
 
     fun setListener(listener: IEncoderDataListener?) {
         dataListener = listener
+    }
+
+    fun stopEncoder(){
+        isEncoder = false
     }
 
 

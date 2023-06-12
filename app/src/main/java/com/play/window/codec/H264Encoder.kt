@@ -167,13 +167,14 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                    val buffer =   ByteBuffer.allocateDirect(videoArray.size)
                     buffer.put(videoArray)
                     buffer.clear()
+                    val avPts = System.nanoTime() / 1000
                     val copy = MediaCodec.BufferInfo()
                     copy.set(mBufferInfo.offset, mBufferInfo.size,
-                        mBufferInfo.presentationTimeUs, mBufferInfo.flags)
+                        avPts, mBufferInfo.flags)
                     val pkt = MediaPacket().apply {
                         info = copy
                         data = buffer
-                        pts = info!!.presentationTimeUs
+                        pts = avPts
                         isVideo = true
                         bufferSize = data?.remaining() ?: 0
                     }

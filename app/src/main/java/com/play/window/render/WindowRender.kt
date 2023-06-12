@@ -71,7 +71,6 @@ class WindowRender() {
             previewSurfaceId = info.surfaceId
         } else {
             info.mTetxureId = param.texture
-            return
         }
         val drawSurface = DrawSurface(mEglCore?.sharedContext,shareLock).apply {
             setSurface(info.surfaceTexture)

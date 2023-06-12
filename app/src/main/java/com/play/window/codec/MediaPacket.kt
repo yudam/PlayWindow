@@ -25,4 +25,9 @@ class MediaPacket {
     var csd0Size: Int = -1
     var csd1Size: Int = -1
     var bufferSize: Int = -1
+    override fun toString(): String {
+        return "MediaPacket(pts=$pts, isVideo=$isVideo, isAudio=$isAudio, isCsd=$isCsd, bufferSize=$bufferSize)"
+    }
+
+
 }
