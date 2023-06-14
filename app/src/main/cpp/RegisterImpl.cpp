@@ -65,6 +65,7 @@ void native_initPublish(JNIEnv *env, jobject thiz, jstring url, jint video_bit_r
     rtmpFlow = new RtmpFlow();
     const char *rtmp_address = env->GetStringUTFChars(url, nullptr);
     rtmpFlow->init(const_cast<char *>(rtmp_address), video_bit_rate, framerate, width, height);
+
 }
 
 void native_connect(JNIEnv *env, jobject object) {
@@ -78,11 +79,11 @@ void native_sendPacket(JNIEnv *env, jobject object, jobject packet) {
     packet1->buffer = env->GetDirectBufferAddress(dataBuffer);
     packet1->bufferSize = env->GetIntField(packet, javaImpl->java_bufferSize);
 
-    packet1->isCsd = env->GetBooleanField(packet,javaImpl->java_isCsd);
-    packet1->csd_0 = env->GetObjectField(packet,javaImpl->java_csd0);
-    packet1->csd_1 = env->GetObjectField(packet,javaImpl->java_csd1);
-    packet1->csd0Size = env->GetIntField(packet,javaImpl->java_csd0Size);
-    packet1->csd1Size = env->GetIntField(packet,javaImpl->java_csd1Size);
+    packet1->isCsd = env->GetBooleanField(packet, javaImpl->java_isCsd);
+    packet1->csd_0 = env->GetObjectField(packet, javaImpl->java_csd0);
+    packet1->csd_1 = env->GetObjectField(packet, javaImpl->java_csd1);
+    packet1->csd0Size = env->GetIntField(packet, javaImpl->java_csd0Size);
+    packet1->csd1Size = env->GetIntField(packet, javaImpl->java_csd1Size);
 
     rtmpFlow->sendMediaPacket(packet1);
 }
@@ -112,20 +113,20 @@ void native_stopAudioRecord(JNIEnv *env, jobject thiz) {
 void native_start_publish(JNIEnv *env, jobject thiz, jstring url, jint width, jint height) {
     h264Encoder = new H264Encoder();
     const char *rtmp = env->GetStringUTFChars(url, NULL);
-    logi(" rtmp: %s,  width: %d,  height: %d",rtmp,width,height);
+    logi(" rtmp: %s,  width: %d,  height: %d", rtmp, width, height);
     h264Encoder->startPublish(rtmp, width, height);
 }
 
 void native_setVideoData(JNIEnv *env, jobject thiz, jbyteArray dataBuffer, jint len) {
 
-    if(h264Encoder != nullptr){
+    if (h264Encoder != nullptr) {
         jbyte *buffer = env->GetByteArrayElements(dataBuffer, NULL);
         h264Encoder->encoderBuffer((uint8_t *) buffer, len);
     }
 }
 
 void native_stop_publish(JNIEnv *env, jobject thiz) {
-    if(h264Encoder != nullptr){
+    if (h264Encoder != nullptr) {
         h264Encoder->stopPublish();
     }
 }
@@ -190,7 +191,6 @@ void loadMediaPacketField(JNIEnv *env) {
     javaImpl->java_csd1Size = env->GetFieldID(javaMediaPacketClass, "csd1Size", "I");
 }
 
-
 void *startThread(void *args) {
 
     /**
@@ -233,4 +233,16 @@ jobject callObjMethod(JNIEnv *jniEnv, jobject object) {
         jniEnv->CallBooleanMethod(listObj, jaddMethodId, temp);
     }
     return listObj;
+}
+
+/**
+ *  1. 类描述符
+ *  2. 域描述符
+ *  3. 方法描述符 ： JVM中对函数的标记方式
+ *
+ */
+
+void jni_method(JNIEnv *jniEnv) {
+
+    jniEnv->FindClass("java/util/ArrayList");
 }

@@ -12,11 +12,7 @@ import java.util.concurrent.LinkedBlockingQueue
  * Date: 2023/6/8
  * Time: 17:21
  *
- * 1.  MediaMuxer
  *
- * 2.
- *
- * 3.
  */
 class RecordMedia(val path: String) : Runnable {
 
@@ -32,6 +28,7 @@ class RecordMedia(val path: String) : Runnable {
     private val muxerUtil = MuxerUtil(path)
 
     private var videoTime = 0L
+    private var lastAudioTime = 0L
     private var videoFormat:MediaFormat? = null
     private var audioFormat:MediaFormat? = null
 
@@ -55,6 +52,7 @@ class RecordMedia(val path: String) : Runnable {
                 audioCsd = packet
             } else {
                 audioQueue.offer(packet)
+                Log.i("AUDIO", "addPacket: "+packet.pts)
             }
         }
     }

@@ -48,7 +48,7 @@ class MuxerUtil(val videoPath: String) {
             Log.i("MuxerUtil", "audio : "+bufferInfo.size+"  data : "+dataBuffer.remaining()+"  pts:"+bufferInfo.presentationTimeUs)
             mMuxer.writeSampleData(mAudioTrackIndex, dataBuffer, bufferInfo)
         } else {
-            Log.i("MuxerUtil", "video : "+bufferInfo.size+"  data : "+dataBuffer.remaining()+"  pts:"+bufferInfo.presentationTimeUs)
+            //Log.i("MuxerUtil", "video : "+bufferInfo.size+"  data : "+dataBuffer.remaining()+"  pts:"+bufferInfo.presentationTimeUs)
             mMuxer.writeSampleData(mVideoTrackIndex, dataBuffer, bufferInfo)
         }
     }

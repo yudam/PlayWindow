@@ -36,14 +36,17 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
 
     private val timeoutUs = 10000L
 
-    private var dataListener:IEncoderDataListener? = null
+    private var dataListener: IEncoderDataListener? = null
 
-    private var surface:Surface? = null
+    private var surface: Surface? = null
 
     @Volatile
     private var isEncoder = true
 
     private val lock = Object()
+
+    private var lastV1Time = 0L
+    private var lastV2Time = 0L
 
     init {
         start()
@@ -63,26 +66,26 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
             MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
 
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE,config.videoBitRate)
-        mediaFormat.setInteger(MediaFormat.KEY_BITRATE_MODE,config.videoBitRateModel)
+        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, config.videoBitRate)
+        mediaFormat.setInteger(MediaFormat.KEY_BITRATE_MODE, config.videoBitRateModel)
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, config.videoFrameRate)
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, config.i_frame_interval)
 
-        synchronized(lock){
+        synchronized(lock) {
             mMediaCodec = MediaCodec.createEncoderByType(mMimeType)
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             // createInputSurface函数必须在configure之后和start方法之前调用
-            surface =  mMediaCodec.createInputSurface()
+            surface = mMediaCodec.createInputSurface()
             mMediaCodec.start()
             lock.notifyAll()
         }
         onFrame()
     }
 
-    fun getEncoderSurface():Surface{
-        if(surface == null){
-            synchronized(lock){
-                if(surface == null){
+    fun getEncoderSurface(): Surface {
+        if (surface == null) {
+            synchronized(lock) {
+                if (surface == null) {
                     lock.wait()
                 }
             }
@@ -90,20 +93,20 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         return surface!!
     }
 
-    fun getRect():GLRect{
+    fun getRect(): GLRect {
         val width = config.videoWidth.toFloat()
         val height = config.videoHeight.toFloat()
-        val cx = width/2
-        val cy = height/2
-        return GLRect(cx,cy,width,height,width,height)
+        val cx = width / 2
+        val cy = height / 2
+        return GLRect(cx, cy, width, height, width, height)
     }
 
 
-    fun setListener(listener: IEncoderDataListener?){
+    fun setListener(listener: IEncoderDataListener?) {
         dataListener = listener
     }
 
-    fun stopEncoder(){
+    fun stopEncoder() {
         isEncoder = false
     }
 
@@ -114,32 +117,32 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
             if (outputBufferIndex >= 0) {
                 val byteBuffer = mMediaCodec.getOutputBuffer(outputBufferIndex)
 
-                Log.i(TAG, "onFrame: "+byteBuffer?.position()+"    limit : "+byteBuffer?.limit())
+                //Log.i(TAG, "onFrame: "+byteBuffer?.position()+"    limit : "+byteBuffer?.limit())
 
                 if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     Log.i(TAG, "BUFFER_FLAG_END_OF_STREAM: ")
                 } else if ((mBufferInfo.flags and MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) != 0) {
                     Log.i(TAG, "INFO_OUTPUT_FORMAT_CHANGED: ")
-                    dataListener?.notifyMediaFormat(mMediaCodec.outputFormat,true)
+                    dataListener?.notifyMediaFormat(mMediaCodec.outputFormat, true)
                     // 获取sps和pps
                     val sps = mMediaCodec.outputFormat.getByteBuffer("csd-0")
                     val pps = mMediaCodec.outputFormat.getByteBuffer("csd-1")
-                    Log.i(TAG, "sps: "+ Utils.bytesToHex(sps?.array()))
+                    Log.i(TAG, "sps: " + Utils.bytesToHex(sps?.array()))
                     sps?.array()?.forEachIndexed { index, byte ->
-                        Log.i(TAG, "index: "+index+"   byte: "+byte)
+                        Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
-                    Log.i(TAG, "pps: "+Utils.bytesToHex(pps?.array()))
+                    Log.i(TAG, "pps: " + Utils.bytesToHex(pps?.array()))
                     pps?.array()?.forEachIndexed { index, byte ->
-                        Log.i(TAG, "index: "+index+"   byte: "+byte)
+                        Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
 
-                    val packet = MediaPacket().apply{
+                    val packet = MediaPacket().apply {
                         isCsd = true
-                        csd0 =sps
+                        csd0 = sps
                         csd1 = pps
-                        pts = System.currentTimeMillis()*1000
-                        csd0Size = sps?.remaining()?:0
-                        csd1Size = pps?.remaining()?:0
+                        pts = System.currentTimeMillis() * 1000
+                        csd0Size = sps?.remaining() ?: 0
+                        csd1Size = pps?.remaining() ?: 0
                     }
 
                     dataListener?.notifyHeaderData(packet)
@@ -147,34 +150,34 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                 } else if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
                     // 表示当前缓冲区携带的是编码器的初始化信息，并不是媒体数据
                     Log.i(TAG, "BUFFER_FLAG_CODEC_CONFIG: ")
-                } else{
+                } else {
                     // 当前缓冲区是关键帧信息
-                    if((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0){
+                    if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
                         Log.i(TAG, "BUFFER_FLAG_KEY_FRAME: ")
                     }
                     val videoArray = ByteArray(mBufferInfo.size)
                     byteBuffer?.let {
                         it.position(mBufferInfo.offset)
                         it.limit(mBufferInfo.offset + mBufferInfo.size)
-                        it.get(videoArray,mBufferInfo.offset,mBufferInfo.size)
+                        it.get(videoArray, mBufferInfo.offset, mBufferInfo.size)
                     }
 
-                    Log.i(TAG, "onFrame: "+Utils.bytesToHex(videoArray.copyOfRange(0,4)))
+                    //   Log.i(TAG, "onFrame: "+Utils.bytesToHex(videoArray.copyOfRange(0,4)))
 
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false)
 
 
-                   val buffer =   ByteBuffer.allocateDirect(videoArray.size)
+                    val videoPTS = getPts()
+                    val buffer = ByteBuffer.allocateDirect(videoArray.size)
                     buffer.put(videoArray)
                     buffer.clear()
-                    val avPts = System.nanoTime() / 1000
                     val copy = MediaCodec.BufferInfo()
                     copy.set(mBufferInfo.offset, mBufferInfo.size,
-                        avPts, mBufferInfo.flags)
+                        videoPTS, mBufferInfo.flags)
                     val pkt = MediaPacket().apply {
                         info = copy
                         data = buffer
-                        pts = avPts
+                        pts = videoPTS
                         isVideo = true
                         bufferSize = data?.remaining() ?: 0
                     }
@@ -185,6 +188,24 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         mMediaCodec.stop()
         mMediaCodec.release()
         dataListener?.notifyEnd()
+    }
+
+    private var lastPresentationTimeUs = 0L
+
+
+    private val duration = 1000 / 30f
+
+    /**
+     * 这里视频的pts如果是ms的话后续合成MP4时会变成慢放的形式
+     *
+     */
+    private fun getPts(): Long {
+        if (lastPresentationTimeUs == 0L) {
+            lastPresentationTimeUs = System.currentTimeMillis()
+        } else {
+            lastPresentationTimeUs += duration.toInt()
+        }
+        return lastPresentationTimeUs * 1000
     }
 
     companion object {

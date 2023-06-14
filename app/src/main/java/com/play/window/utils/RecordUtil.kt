@@ -6,6 +6,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.util.Log
+import com.google.android.exoplayer2.audio.AudioGet
 import com.play.window.codec.MediaPacket
 import java.nio.ByteBuffer
 
@@ -22,19 +23,6 @@ class RecordUtil( val audioPath: String? = null) : Thread("Audio-Record-1") {
     private val sampleRate = 44100
     private var bufferSize: Int = 0
     private var isFirstFrame = true
-
-
-    /**
-     * 回音消除
-     * audioRecord可以获取一个SessionId，在创建AudioTrack的时候可以传入
-     */
-    private fun createAEC() {
-        val audioSessionId = audioRecord?.audioSessionId
-        if (AcousticEchoCanceler.isAvailable() && audioSessionId != null) {
-            val acousticEchoCanceler = AcousticEchoCanceler.create(audioSessionId)
-            acousticEchoCanceler.enabled = true
-        }
-    }
 
 
     override fun run() {
@@ -75,10 +63,7 @@ class RecordUtil( val audioPath: String? = null) : Thread("Audio-Record-1") {
                 //重置ByteBuffer的position和limit
                 buf.position(len)
                 buf.flip()
-
-                val mediaData = MediaPacket().apply {
-                    data = buf
-                }
+                AudioGet.onData(buf,len)
             }
         }
     }

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+#include <android/log.h>
 
 extern "C" {
 #include "include/libavformat/avformat.h"
@@ -20,21 +21,18 @@ extern "C" {
 class VideoDecoder {
 
 public:
-    void initdecoder();
+    void init(char* media_file,JNIEnv * jniEnv,jobject object);
 
-    void loopdecoder();
+    void startDecoder();
 
     void onFrameAvailable(AVFrame *avFrame);
-
-    void scaleFrameData(AVFrame *avFrame);
 
     void release();
 
 private:
 
-    char *m_url = nullptr;
+    char *filename = nullptr;
     int64_t stream_index = -1;
-    float m_seekPosition = 0;
     int m_videoWidth = 0;
     int m_videoHeight = 0;
 
@@ -42,22 +40,15 @@ private:
     AVCodecContext *avCodecContext = nullptr;
     AVPacket *avPacket = nullptr;
     AVFrame *avFrame = nullptr;
-
     SwsContext *swsContext = nullptr;
     AVFrame *rgbFrame = nullptr;
     uint8_t *frameBuffer = nullptr;
 
 
+    ANativeWindow * aNativeWindow = nullptr;
+
     JNIEnv *jni_env;
     jobject java_surface;
-
-    void decoderMethod();
-
-    uint8_t *getFrameSize();
-
-    void initScale();
-
-
 };
 
 

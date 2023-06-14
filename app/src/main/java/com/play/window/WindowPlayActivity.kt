@@ -71,10 +71,10 @@ class WindowPlayActivity : AppCompatActivity() {
         Log.i(WindowApp.TAG, "onCreate: ")
 
         binding.playVideo.surfaceTextureListener = PlaySurfaceListener(binding.playVideo,videoPath)
-        binding.tvTopLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvTopLeft,videoPath)
-        binding.tvTopRight.surfaceTextureListener = PlaySurfaceListener(binding.tvTopRight,videoPath)
-        binding.tvBottomLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvBottomLeft,videoPath)
-        binding.tvBottomRight.surfaceTextureListener = PlaySurfaceListener(binding.tvBottomRight,videoPath)
+//        binding.tvTopLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvTopLeft,videoPath)
+//        binding.tvTopRight.surfaceTextureListener = PlaySurfaceListener(binding.tvTopRight,videoPath)
+//        binding.tvBottomLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvBottomLeft,videoPath)
+//        binding.tvBottomRight.surfaceTextureListener = PlaySurfaceListener(binding.tvBottomRight,videoPath)
 
         binding.btnTopLeft.setOnClickListener {
         }

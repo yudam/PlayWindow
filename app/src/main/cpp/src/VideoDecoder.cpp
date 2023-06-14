@@ -4,19 +4,18 @@
 
 #include "VideoDecoder.h"
 
-void VideoDecoder::initdecoder() {
+#define logi(...) __android_log_print(ANDROID_LOG_INFO,"VideoDecoder",__VA_ARGS__)
 
-    /**
-     * 创建 封装格式上下文
-     */
-    avFormatContext = avformat_alloc_context();
-    if (!avFormatContext) {
-        return;
-    }
+
+void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
+
+    this->filename = media_file;
+    this->jni_env = jniEnv;
+    this->java_surface = object;
     /**
      * 打开输入流文件
      */
-    int ret = avformat_open_input(&avFormatContext, m_url, nullptr, nullptr);
+    int ret = avformat_open_input(&avFormatContext, filename, nullptr, nullptr);
     if (ret < 0) {
         return;
     }
@@ -42,12 +41,9 @@ void VideoDecoder::initdecoder() {
     }
 
     /**
-     * 获取解码器参数
-     */
-    AVCodecParameters *codecpar = avFormatContext->streams[stream_index]->codecpar;
-    /**
      * 获取解码器
      */
+    AVCodecParameters *codecpar = avFormatContext->streams[stream_index]->codecpar;
     AVCodec *avcodec = avcodec_find_decoder(codecpar->codec_id);
     if (!avcodec) {
         return;
@@ -68,45 +64,30 @@ void VideoDecoder::initdecoder() {
         return;
     }
 
+    m_videoWidth = avCodecContext->width;
+    m_videoHeight = avCodecContext->height;
+
     avPacket = av_packet_alloc();
+    // 分配一个AVFrame结构体
     avFrame = av_frame_alloc();
-
-    // 表示流的持续时间，单位为微秒
-    avFormatContext->duration;
-    // 获取解码器中的宽高，这里的宽高就是解码出来的流的宽高，可以返回给渲染模块来调整画布大小
-    avCodecContext->width;
-    avCodecContext->height;
-}
-
-
-/**
- * 获取一帧数据的大小
- */
-uint8_t *VideoDecoder::getFrameSize() {
+    rgbFrame = av_frame_alloc();
     /**
      * 通过像素格式，图像宽高来计算所需的内存大小
      * align：此参数是设定内存对齐的对齐数，也就是按多大的字节进行内存对齐。比如设置为1，表示按1字节对齐，
      * 那么得到的结果就是与实际的内存大小一样。再比如设置为4，表示按4字节对齐。也就是内存的起始地址必须是4的整倍数。
      */
-    int bufferSize = av_image_get_buffer_size(avCodecContext->pix_fmt, avCodecContext->width, avCodecContext->height, 1);
-    uint8_t *frameBuffer = (uint8_t *) av_malloc(bufferSize * sizeof(uint8_t));
-    return frameBuffer;
-}
-
-
-void VideoDecoder::initScale() {
-    rgbFrame = av_frame_alloc();
-    frameBuffer = getFrameSize();
+    int request_buffer_size = av_image_get_buffer_size(AV_PIX_FMT_RGBA, avCodecContext->width, avCodecContext->height, 1);
+    frameBuffer = (uint8_t *) av_malloc(request_buffer_size);
     // 将新分配的AVFrame和frameBuffer缓冲区关联起来，当AVFrame中数据改变了，frameBuffer中也会改变
     av_image_fill_arrays(rgbFrame->data, rgbFrame->linesize, frameBuffer, AV_PIX_FMT_RGBA, avCodecContext->width,
                          avCodecContext->height, 1);
     // 设置将yuv转换为rgb的参数
     swsContext = sws_getContext(avCodecContext->width, avCodecContext->height, avCodecContext->pix_fmt,
-                   avCodecContext->width, avCodecContext->height, AV_PIX_FMT_RGBA,
-                   SWS_FAST_BILINEAR, NULL, NULL, NULL);
+                                avCodecContext->width, avCodecContext->height, AV_PIX_FMT_RGBA,
+                                SWS_FAST_BILINEAR, NULL, NULL, NULL);
 }
 
-void VideoDecoder::loopdecoder() {
+void VideoDecoder::startDecoder() {
     /**
      * 循环读取一帧数据
      */
@@ -116,25 +97,24 @@ void VideoDecoder::loopdecoder() {
             continue;
         }
 
-        if (avcodec_send_packet(avCodecContext, avPacket) < 0) {
+        if (avcodec_send_packet(avCodecContext, avPacket) != 0) {
+            logi("avcodec_send_packet  failed");
             return;
         }
 
         while (avcodec_receive_frame(avCodecContext, avFrame) == 0) {
-            // avFrame中包含解码后的数据，此时可以发送给渲染层，也可以做一些同步操作
+            /**
+             * 转换数据格式
+             */
+            sws_scale(swsContext, avFrame->data, avFrame->linesize, 0, avCodecContext->height,
+                      rgbFrame->data, rgbFrame->linesize);
+            /**
+             * 发送到窗口
+             */
             onFrameAvailable(avFrame);
         }
-
         av_packet_unref(avPacket);
     }
-}
-
-void VideoDecoder::scaleFrameData(AVFrame *avFrame) {
-    /**
-     * 转换数据格式
-     */
-    sws_scale(swsContext,avFrame->data,avFrame->linesize,0,avCodecContext->height,
-              rgbFrame->data,rgbFrame->linesize);
 }
 
 /**
@@ -143,16 +123,72 @@ void VideoDecoder::scaleFrameData(AVFrame *avFrame) {
  *
  */
 void VideoDecoder::onFrameAvailable(AVFrame *avFrame) {
-    scaleFrameData(avFrame);
-    ANativeWindow * aNativeWindow =   ANativeWindow_fromSurface(jni_env,java_surface);
+    aNativeWindow = ANativeWindow_fromSurface(jni_env, java_surface);
+    // 设置渲染区域和输入格式
+    ANativeWindow_setBuffersGeometry(aNativeWindow,m_videoWidth,m_videoHeight,WINDOW_FORMAT_RGBA_8888);
+    // 渲染
+    ANativeWindow_Buffer m_ANativeWindow_Buffer;
+
+    // 锁定当前Window，获取屏幕缓冲区Buffer的指针
+    ANativeWindow_lock(aNativeWindow, &m_ANativeWindow_Buffer, nullptr);
+    uint8_t *dstBuffer = static_cast<uint8_t *>(m_ANativeWindow_Buffer.bits);
+
+    // 输入的图的步长（一行像素有多少字节）
+    int srcLinesize = rgbFrame->linesize[0];
+    // RGBA缓冲区步长
+    int dstLInesize = m_ANativeWindow_Buffer.stride * 4;
+
+    for (int i = 0; i < m_videoHeight; i++) {
+        // 一行一行的拷贝图像数据
+        memcpy(dstBuffer+i*dstLInesize,frameBuffer + i * srcLinesize,srcLinesize);
+    }
+
+    // 解锁当前Window，渲染缓冲区数据
+    ANativeWindow_unlockAndPost(aNativeWindow);
 }
 
 
 void VideoDecoder::release() {
 
-}
+    if(avFrame != NULL){
+        av_frame_free(&avFrame);
+        avFrame = NULL;
+    }
 
-void VideoDecoder::decoderMethod() {
+    if(rgbFrame != NULL){
+        av_frame_free(&rgbFrame);
+        rgbFrame = NULL;
+    }
 
+    if(avPacket != NULL){
+        av_packet_free(&avPacket);
+        avPacket = NULL;
+    }
 
+    if(frameBuffer != NULL){
+        av_free(frameBuffer);
+        frameBuffer = NULL;
+    }
+
+    if(swsContext != NULL){
+        sws_freeContext(swsContext);
+        swsContext = NULL;
+    }
+
+    if(avCodecContext != NULL){
+        avcodec_close(avCodecContext);
+        avcodec_free_context(&avCodecContext);
+        avCodecContext  = NULL;
+    }
+
+    if(avFormatContext != NULL){
+        avformat_close_input(&avFormatContext);
+        avformat_free_context(avFormatContext);
+        avFormatContext = NULL;
+    }
+
+    if(aNativeWindow != NULL){
+        ANativeWindow_release(aNativeWindow);
+        aNativeWindow = NULL;
+    }
 }

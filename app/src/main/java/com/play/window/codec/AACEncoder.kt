@@ -5,7 +5,11 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.util.Log
+import com.play.window.utils.AacUtils
 import com.play.window.utils.Utils
+import java.io.BufferedOutputStream
+import java.io.FileOutputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -17,12 +21,14 @@ import java.util.concurrent.TimeUnit
  *
  * 音频编码时比特率设置高一些，太低的话会导致杂音严重
  */
-class AACEncoder() : Thread("AACEncoder") {
+class AACEncoder(val audioPath:String) : Thread("AACEncoder") {
 
     private lateinit var aacEncoder: MediaCodec
     private var isEncoder = true
     private val mBufferPool = LinkedBlockingQueue<ByteBuffer>()
     private var dataListener: IEncoderDataListener? = null
+    private var outFile = BufferedOutputStream(FileOutputStream(audioPath))
+
 
     override fun run() {
         initConfig()
@@ -53,7 +59,7 @@ class AACEncoder() : Thread("AACEncoder") {
                     inputBuffer?.clear()
                     //Log.i(TAG, "size: "+it.remaining()+"    input:"+inputBuffer?.remaining())
                     inputBuffer?.put(it)
-                    aacEncoder.queueInputBuffer(inputerBufferIndex, 0, dataBuffer.capacity(), System.nanoTime() / 1000, 0)
+                    aacEncoder.queueInputBuffer(inputerBufferIndex, 0, dataBuffer.capacity(), 0, 0)
                 }
             }
 
@@ -73,7 +79,7 @@ class AACEncoder() : Thread("AACEncoder") {
                         Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
 
-                    Log.i("MDY", "onDrain: "+adts?.array().toString())
+                    Log.i("MDY", "onDrain: " + adts?.array().toString())
                     dataListener?.notifyMediaFormat(audioForamt, false)
                 } else if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     Log.i(TAG, "BUFFER_FLAG_END_OF_STREAM: ")
@@ -81,16 +87,25 @@ class AACEncoder() : Thread("AACEncoder") {
                 } else {
                     val outputBuffer = aacEncoder.getOutputBuffer(outputBufferIndex)
                     outputBuffer?.let {
-                        val aacData = ByteArray(bufferInfo.size)
-                        // 将数据复制到aacData数组中
-                        it.position(bufferInfo.offset)
-                        it.limit(bufferInfo.offset + bufferInfo.size)
-                        it.get(aacData, 0, bufferInfo.size)
+// 将音频写入文件，主要是为了验证编码后的音频是否正确
+//                        val aacData = ByteArray(bufferInfo.size + 7)
+//                        // 将数据复制到aacData数组中
+//                        //获取编码后的AAC数据，并添加头部参数
+//                        AacUtils.addADTStoPacket(aacData)
+//
+//                        it.position(bufferInfo.offset)
+//                        it.limit(bufferInfo.offset + bufferInfo.size)
+//                        it.get(aacData, 7, bufferInfo.size)
+//                        //将编码后的音频写入文件
+//                        writeAudio2File(aacData, outFile)
 
-                        val avPts = System.nanoTime() / 1000
+                        val aacData = ByteArray(bufferInfo.size)
+                        it.get(aacData, bufferInfo.offset, bufferInfo.size)
+                        // 音频的pts总是偶尔出现降序的问题，导致合并失败，所以这里重新设置pts
+                        val audioPTS = getPts()
                         val copy = MediaCodec.BufferInfo()
                         copy.set(bufferInfo.offset, bufferInfo.size,
-                            avPts, bufferInfo.flags)
+                            audioPTS, bufferInfo.flags)
                         val copyBuffer = ByteBuffer.allocateDirect(bufferInfo.size)
                         copyBuffer.put(aacData, 0, bufferInfo.size)
                         copyBuffer.clear()
@@ -98,11 +113,9 @@ class AACEncoder() : Thread("AACEncoder") {
                         val pkt = MediaPacket().apply {
                             info = copy
                             data = copyBuffer
-                            pts = avPts
+                            pts = audioPTS
                             isAudio = true
                         }
-
-                        //Log.i("MDY", "onDrain: "+pkt.data?.remaining()+"  pts:"+pkt.pts)
                         dataListener?.notifyAvailableData(pkt)
                     }
                     aacEncoder.releaseOutputBuffer(outputBufferIndex, false)
@@ -113,9 +126,22 @@ class AACEncoder() : Thread("AACEncoder") {
         aacEncoder.release()
     }
 
+    private var lastPresentationTimeUs = 0L
+
+    private val duration = 1024f / 44100 * 1000
+
+    private fun getPts(): Long {
+        if (lastPresentationTimeUs == 0L) {
+            lastPresentationTimeUs = System.currentTimeMillis()
+        } else {
+            lastPresentationTimeUs += duration.toInt()
+        }
+        return lastPresentationTimeUs * 1000
+    }
+
     fun frameBuffer(bytedata: ByteBuffer) {
         // put 将元素插入到队列尾部，空间不足时可等待插入
-        if(isEncoder){
+        if (isEncoder) {
             mBufferPool.put(bytedata)
         }
 /*      add 在由于容量限制导无法插入时，会抛出 IllegalStateException 异常
@@ -130,10 +156,17 @@ class AACEncoder() : Thread("AACEncoder") {
         dataListener = listener
     }
 
-    fun stopEncoder(){
+    fun stopEncoder() {
         isEncoder = false
     }
 
+
+
+    fun writeAudio2File(byteArray: ByteArray, outPutStream: OutputStream) {
+        outPutStream.write(byteArray)
+        outPutStream.flush()
+        Log.d("audio_remain", "write success")
+    }
 
     companion object {
         private const val TAG = "AACEncoder"

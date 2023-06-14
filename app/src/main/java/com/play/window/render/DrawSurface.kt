@@ -135,7 +135,17 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
         drawHandler?.sendEmptyMessageDelayed(DRAWSCENE, delay / 1000 / 1000)
     }
 
+
+    private var lastTime = 0L
+
     private fun drawScene() {
+
+        if(isEncode){
+            val currTime = System.nanoTime()
+
+            Log.i("DRAWSURFACE", "offset: "+(currTime-lastTime)/1000/1000+"    fps:"+frameRate)
+            lastTime = currTime
+        }
         mWindowSurface?.makeCurrent()
         synchronized(renderLock) {
             graphProcess?.draw()

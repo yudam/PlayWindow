@@ -30,6 +30,8 @@ import com.play.window.render.model.TextureInfo
 import com.play.window.temp.GlUtils
 import com.play.window.utils.MediaConfig
 import com.play.window.utils.MuxerUtil
+import com.play.window.utils.RecordUtil
+import java.io.File
 import javax.microedition.khronos.egl.EGL10
 import kotlin.concurrent.thread
 
@@ -48,9 +50,11 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
     private val lock = Object()
 
     private var record: RecordMedia? = null
+    private val recordUtil:RecordUtil = RecordUtil()
 
     init {
         start()
+       // recordUtil.start()
         AudioGet.registerListener { buffer, size ->
             aacEncoder?.frameBuffer(buffer)
         }
@@ -101,7 +105,7 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                                 windowRender?.setEncoderSurface( getEncoderSurface(),getRect())
                             }
 
-                            aacEncoder = AACEncoder()
+                            aacEncoder = AACEncoder(getAudioPath())
                             aacEncoder?.setListener(listener)
                             aacEncoder?.start()
                         }
@@ -196,6 +200,17 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
 
     }
 
+    private fun getAudioPath(): String {
+        val path = WindowApp.instance().cacheDir.absolutePath + "/audioverify.aac"
+        val file = File(path)
+        if (!file.exists()) {
+            file.createNewFile()
+        } else {
+            file.delete()
+            file.createNewFile()
+        }
+        return path
+    }
 
     companion object {
         private const val PLAYVIDEO = 0x11

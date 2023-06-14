@@ -12,7 +12,7 @@ class MediaConfig {
 
     var publishUrl:String = "rtmp://172.16.0.97:1935/live/room"
 
-    var videoBitRate = 1920 * 1080 * 5
+    var videoBitRate = 1920 * 1080  * 3
 
     var videoWidth = 1920
 
