@@ -2,14 +2,18 @@ package com.play.window.capture
 
 import android.content.Context
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import android.view.Window
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.Player.Listener
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
+import com.google.android.exoplayer2.video.VideoSize
 import com.play.window.WindowApp
+import org.greenrobot.eventbus.EventBus
 
 
 /**
@@ -21,12 +25,14 @@ class VideoPlayer(uri: String, surface: Surface) {
 
     private var exoPlayer: ExoPlayer? = null
 
+    private var callback: VideoDataCallback? = null
+
     init {
-        exoPlayer =  initPlayer(WindowApp.instance(),uri, surface)
+        exoPlayer = initPlayer(WindowApp.instance(), uri, surface)
 
     }
 
-   private  fun initPlayer(context: Context, uri: String, surface: Surface): ExoPlayer {
+    private fun initPlayer(context: Context, uri: String, surface: Surface): ExoPlayer {
 
         // 1.创建ExoPlayer实例
         val exoPlayer = ExoPlayer.Builder(context)
@@ -41,21 +47,31 @@ class VideoPlayer(uri: String, surface: Surface) {
             .setUri(uri)
             .build(), false)
 
-       Log.i(WindowApp.TAG, "isValid: "+surface.isValid)
+        Log.i(WindowApp.TAG, "isValid: " + surface.isValid)
         //4.设置预览
         exoPlayer.setVideoSurface(surface)
 
-       exoPlayer.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, format, mediaFormat ->
+        exoPlayer.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, format, mediaFormat ->
 
 
-       }
-
+        }
         // 5.监听播放过程中的变化
-        // exoPlayer.addListener()
-        // exoPlayer.addAnalyticsListener()
+        exoPlayer.addListener(object : Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                super.onVideoSizeChanged(videoSize)
+                Log.i("onVideoSizeChanged", "width: " + videoSize.width + "   height:" + videoSize.height)
+                callback?.onVideoDataChange(videoSize.width, videoSize.height)
+            }
+        })
+
         // 6.开始加载媒体资源
         exoPlayer.prepare()
         return exoPlayer
+    }
+
+
+    fun addPrepareVideoCallback(callback: VideoDataCallback){
+        this.callback = callback
     }
 
 
@@ -72,4 +88,9 @@ class VideoPlayer(uri: String, surface: Surface) {
             exoPlayer?.playWhenReady, playbackStateString, exoPlayer?.currentMediaItemIndex)
     }
 
+
+    fun interface VideoDataCallback {
+
+        fun onVideoDataChange(width: Int, height: Int)
+    }
 }

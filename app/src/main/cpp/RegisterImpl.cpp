@@ -80,11 +80,24 @@ void native_sendPacket(JNIEnv *env, jobject object, jobject packet) {
     packet1->bufferSize = env->GetIntField(packet, javaImpl->java_bufferSize);
 
     packet1->isCsd = env->GetBooleanField(packet, javaImpl->java_isCsd);
-    packet1->csd_0 = env->GetObjectField(packet, javaImpl->java_csd0);
-    packet1->csd_1 = env->GetObjectField(packet, javaImpl->java_csd1);
+
+    jobject csd0_data = env->GetObjectField(packet, javaImpl->java_csd0);
+
+
+    jlong len = env->GetDirectBufferCapacity(csd0_data);
+
+    logi("   len  :  %d", len);
+
+    packet1->csd_0 = env->GetDirectBufferAddress(csd0_data);
+
+
+    jobject csd1_data = env->GetObjectField(packet, javaImpl->java_csd1);
+    packet1->csd_1 = env->GetDirectBufferAddress(csd1_data);
+
     packet1->csd0Size = env->GetIntField(packet, javaImpl->java_csd0Size);
     packet1->csd1Size = env->GetIntField(packet, javaImpl->java_csd1Size);
 
+    logi("  sps len : %d,   pps len : %d",packet1->csd0Size,packet1->csd1Size);
     rtmpFlow->sendMediaPacket(packet1);
 }
 
@@ -179,6 +192,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 void loadMediaPacketField(JNIEnv *env) {
     javaImpl = new JavaImpl();
     jclass javaMediaPacketClass = env->FindClass(JAVA_MEDIAPACKET_CLASS);
+
     javaImpl->java_data = env->GetFieldID(javaMediaPacketClass, "data", "Ljava/nio/ByteBuffer;");
     javaImpl->java_csd0 = env->GetFieldID(javaMediaPacketClass, "csd0", "Ljava/nio/ByteBuffer;");
     javaImpl->java_csd1 = env->GetFieldID(javaMediaPacketClass, "csd1", "Ljava/nio/ByteBuffer;");

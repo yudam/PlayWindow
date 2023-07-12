@@ -11,3 +11,9 @@
 JNI_OnLoad函数可以进行一些初始化操作。动态注册则在函数中通过JNIEnv的RegisterNatives函数来实现。
 
 JNINativeMethod定义了java层函数和native层函数的对应关系。
+
+
+
+JNI中GetDirectBufferAddress可以用来返回Buffer指向的内存首地址，但是需要注意的是如果GetDirectBufferAddress函数
+的参数不是Buffer或者是虚拟机不支持JNI直接访问的Buffer，会返回NULL。目前发现在MediaCodec中直接编解码获取的
+Buffer不支持在JNI中访问，必须重新调用ByteBuffer.allocateDirect创建Buffer。

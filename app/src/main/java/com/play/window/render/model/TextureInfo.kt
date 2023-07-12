@@ -8,7 +8,10 @@ import com.play.window.render.TextureProgram
  * Date: 2023/4/25
  * Time: 11:58
  */
-data class TextureInfo(val texture: Int, val rect: GLRect, var isOES: Boolean = true) {
+data class TextureInfo(val stream: Stream,
+                       var texture: Int,
+                       var rect: GLRect,
+                       var isOES: Boolean = true) {
 
 
     var mProgram: TextureProgram? = null
@@ -21,4 +24,9 @@ data class TextureInfo(val texture: Int, val rect: GLRect, var isOES: Boolean = 
      * 当前TextureInfo之后绘制的纹理
      */
     val nextTextureInfoList = mutableListOf<TextureInfo>()
+
+
+    fun clone(rect: GLRect):TextureInfo{
+        return TextureInfo(stream,texture, rect, isOES)
+    }
 }

@@ -3,8 +3,6 @@ package com.play.window.render
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLES30
-import android.util.Log
-import com.play.window.WindowApp
 import com.play.window.render.gles.GlUtil
 
 /**
@@ -13,21 +11,25 @@ import com.play.window.render.gles.GlUtil
  * Time: 19:19
  * 执行OpenGL操作
  */
-class TextureProgram(vertex: String, fragment: String) {
+open class TextureProgram(val vertex: String, val fragment: String) {
 
-    private var mProgram: Int = -1
+    protected var mProgram: Int = -1
     private var mPosition: Int = -1
     private var mTextCoord: Int = -1
     private var mMvpMatrix: Int = -1
     private var mainTexture: Int = -1
 
 
-    private var tetxureId: Int = -1
+    private var textureId: Int = -1
     private var vertexArray: FloatArray = floatArrayOf()
     private var fragmentArray: FloatArray = floatArrayOf()
     private var mvpMatrix: FloatArray = floatArrayOf()
 
     init {
+        initGl()
+    }
+
+    protected open fun initGl() {
         mProgram = GlUtil.createProgram(vertex, fragment)
         initBaseValue()
     }
@@ -40,37 +42,45 @@ class TextureProgram(vertex: String, fragment: String) {
         mainTexture = GLES20.glGetUniformLocation(mProgram, "uTexture1")
     }
 
+    /**
+     * 绘制
+     */
     private fun draw(isOES: Boolean = true) {
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
         GLES20.glUseProgram(mProgram)
-        GlUtil.checkGlError("glUseProgram:")
         setVertexAttribPointer(mPosition, vertexArray)
-        GlUtil.checkGlError("setVertexAttribPointer:")
-        setVertexAttribPointer(mTextCoord,fragmentArray)
-        GlUtil.checkGlError("setVertexAttribPointer:")
-        setUniformMatrix4fv(mMvpMatrix,mvpMatrix)
-        GlUtil.checkGlError("setUniformMatrix4fv:")
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GlUtil.checkGlError("glActiveTexture:")
-        if(isOES){
-            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tetxureId)
-        } else {
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tetxureId)
+        setVertexAttribPointer(mTextCoord, fragmentArray)
+        setUniformMatrix4fv(mMvpMatrix, mvpMatrix)
+        GlUtil.checkGlError("------ glUseProgram ------")
+        onInitValue()
+        GlUtil.checkGlError("------ onInitValue ------")
+        if (textureId != GlUtil.NO_TEXTURE) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            if (isOES) {
+                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
+            } else {
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+            }
+            setUniform1i(mainTexture, 0)
         }
-        GlUtil.checkGlError("glBindTexture:"+tetxureId +"   oes : "+isOES)
-        setUniform1i(mainTexture, 0)
+        GlUtil.checkGlError("------ glActiveTexture ------")
+        drawAfter()
+        GlUtil.checkGlError("------ drawAfter ------")
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GlUtil.checkGlError("glDrawArrays:")
-
-
         GLES20.glDisableVertexAttribArray(mPosition)
-        GlUtil.checkGlError("glDrawArrays mPosition:")
         GLES20.glDisableVertexAttribArray(mTextCoord)
-        GlUtil.checkGlError("glDrawArrays mTextCoord:")
         GLES20.glUseProgram(0)
-        GlUtil.checkGlError("glUseProgram0:")
         GLES30.glDisable(GLES20.GL_BLEND)
+        GlUtil.checkGlError("------ glDrawArrays ------")
+    }
+
+    open fun onInitValue() {
+
+    }
+
+    open fun drawAfter() {
+
     }
 
 
@@ -79,52 +89,37 @@ class TextureProgram(vertex: String, fragment: String) {
      * @param fragment 纹理坐标
      *
      */
-    fun render(vertex: FloatArray, fragment: FloatArray, textureId: Int, matrix: FloatArray,isOES:Boolean = true) {
-
-//        Log.i(WindowApp.TAG, "vertext: "+vertex.toList())
-//        Log.i(WindowApp.TAG, "fragment: "+fragment.toList())
+    fun render(vertex: FloatArray, fragment: FloatArray, textureId: Int, matrix: FloatArray, isOES: Boolean = true) {
         this.vertexArray = vertex
         this.fragmentArray = fragment
-        this.tetxureId = textureId
+        this.textureId = textureId
         this.mvpMatrix = matrix
         draw(isOES)
     }
 
 
-    fun setVertex(array: FloatArray) {
-        this.vertexArray = array
-    }
-
-    fun setFragment(array: FloatArray) {
-        this.fragmentArray = array
-    }
-
-    fun setTextureid(textureId: Int) {
-        this.tetxureId = textureId
-    }
-
-    fun setMatrix(matrix: FloatArray) {
-        this.mvpMatrix = matrix
-    }
-
-    private fun setVertexAttribPointer(attrKey: Int, attrValue: FloatArray) {
+    fun setVertexAttribPointer(attrKey: Int, attrValue: FloatArray) {
         GLES20.glEnableVertexAttribArray(attrKey)
         val buffer = GlUtil.createFloatBuffer(attrValue)
         GLES20.glVertexAttribPointer(attrKey, GlUtil.PER2, GLES20.GL_FLOAT, false, 0, buffer)
     }
 
-    private fun setUniformMatrix4fv(uniformKey: Int, uniformValue: FloatArray) {
+    fun setUniformMatrix4fv(uniformKey: Int, uniformValue: FloatArray) {
         val buffer = GlUtil.createFloatBuffer(uniformValue)
         GLES20.glUniformMatrix4fv(uniformKey, 1, false, buffer)
     }
 
 
-    private fun setUniform1i(uniformKey: Int, uniformValue: Int) {
+    fun setUniform1i(uniformKey: Int, uniformValue: Int) {
         GLES20.glUniform1i(uniformKey, uniformValue)
     }
 
-    private fun setUniform1f(uniformKey: Int, uniformValue: Float) {
+    fun setUniform1f(uniformKey: Int, uniformValue: Float) {
         GLES20.glUniform1f(uniformKey, uniformValue)
+    }
+
+    fun setUniform2iv(uniformKey: Int, uniformValue: IntArray) {
+        GLES20.glUniform2iv(uniformKey, 1, uniformValue, 0)
     }
 
 }

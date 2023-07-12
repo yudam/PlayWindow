@@ -42,6 +42,7 @@ import java.nio.FloatBuffer;
  */
 public class GlUtil {
     public static final String TAG = "WindowPlayer";
+    public static final int NO_TEXTURE = -1;
 
     /**
      * Identity matrix for general use.  Don't modify or life will get weird.
@@ -230,18 +231,27 @@ public class GlUtil {
     public static GlFrameBuffer prepareFrameBuffer(int width, int height) {
         GlFrameBuffer glFrameBuffer = new GlFrameBuffer();
         int[] intArray = new int[1];
+        checkGlError("-------0");
+
         GLES20.glGenTextures(1, intArray, 0);
+
+        checkGlError("-------1");
         glFrameBuffer.setTextureId(intArray[0]);
+
+        checkGlError("-------2");
         Log.i("MDY", "getTextureId:"+glFrameBuffer.getTextureId()+"    vl:"+intArray[0]);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, glFrameBuffer.getTextureId());
+        checkGlError("glBindTexture------    "+glFrameBuffer.getTextureId());
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MIN_FILTER, GLES10.GL_NEAREST);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_MAG_FILTER, GLES10.GL_LINEAR);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_S, GLES10.GL_CLAMP_TO_EDGE);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES10.GL_TEXTURE_WRAP_T, GLES10.GL_CLAMP_TO_EDGE);
+        checkGlError("glBindTexture------0");
         GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA,
             GLES20.GL_UNSIGNED_BYTE, null);
+        checkGlError("glBindTexture------1 ： "+width+"     height:"+height);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,0);
-        checkGlError("glBindTexture");
+        checkGlError("glBindTexture------2");
 
         GLES20.glGenFramebuffers(1, intArray, 0);
         glFrameBuffer.setFrameBufferId(intArray[0]);

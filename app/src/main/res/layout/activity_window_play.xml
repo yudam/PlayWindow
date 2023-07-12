@@ -18,8 +18,7 @@
     <TextureView
         android:id="@+id/tv_top_left"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_bottom_left"
+        android:layout_height="120dp"
         app:layout_constraintEnd_toStartOf="@+id/tv_top_right"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/play_video" />
@@ -28,80 +27,56 @@
     <TextureView
         android:id="@+id/tv_top_right"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_bottom_left"
+        android:layout_height="120dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/tv_top_left"
         app:layout_constraintTop_toBottomOf="@+id/play_video" />
 
-    <TextureView
-        android:id="@+id/tv_bottom_left"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/tv_bottom_right"
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_top_left" />
-
-
-    <TextureView
-        android:id="@+id/tv_bottom_right"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/tv_bottom_left"
-        app:layout_constraintTop_toBottomOf="@+id/tv_top_left" />
+        android:layout_marginBottom="20dp"
+        android:orientation="horizontal">
 
 
-    <Button
-        android:id="@+id/btn_play"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="播放"
-        app:layout_constraintStart_toStartOf="@+id/play_video"
-        app:layout_constraintEnd_toEndOf="@+id/play_video"
-        app:layout_constraintTop_toTopOf="@+id/play_video"
-        app:layout_constraintBottom_toBottomOf="@+id/play_video"/>
 
-    <Button
-        android:id="@+id/btn_top_left"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="播放"
-        app:layout_constraintStart_toStartOf="@+id/tv_top_left"
-        app:layout_constraintEnd_toEndOf="@+id/tv_top_left"
-        app:layout_constraintTop_toTopOf="@+id/tv_top_left"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_top_left"/>
+        <TextView
+            android:id="@+id/btn_play"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="录制"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/white"
+            android:background="@drawable/btn_circle_bg"/>
 
-    <Button
-        android:id="@+id/btn_top_right"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="播放"
-        app:layout_constraintStart_toStartOf="@+id/tv_top_right"
-        app:layout_constraintEnd_toEndOf="@+id/tv_top_right"
-        app:layout_constraintTop_toTopOf="@+id/tv_top_right"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_top_right"/>
 
-    <Button
-        android:id="@+id/btn_bottom_left"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="播放"
-        app:layout_constraintStart_toStartOf="@+id/tv_bottom_left"
-        app:layout_constraintEnd_toEndOf="@+id/tv_bottom_left"
-        app:layout_constraintTop_toTopOf="@+id/tv_bottom_left"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_bottom_left"/>
+        <TextView
+            android:id="@+id/btn_live"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="推流"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:layout_marginStart="20dp"
+            android:textColor="@color/white"
+            android:background="@drawable/btn_circle_bg"/>
 
-    <Button
-        android:id="@+id/btn_bottom_right"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="播放"
-        app:layout_constraintStart_toStartOf="@+id/tv_bottom_right"
-        app:layout_constraintEnd_toEndOf="@+id/tv_bottom_right"
-        app:layout_constraintTop_toTopOf="@+id/tv_bottom_right"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_bottom_right"/>
 
+        <TextView
+            android:id="@+id/btn_record_audio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="录音"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:layout_marginStart="20dp"
+            android:textColor="@color/white"
+            android:background="@drawable/btn_circle_bg"/>
+
+
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

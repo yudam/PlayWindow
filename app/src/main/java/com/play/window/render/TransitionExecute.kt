@@ -14,8 +14,6 @@ import com.play.window.temp.GLDrawableUtils
 class TransitionExecute {
 
     private val animProgram: Int
-
-    private var mProgram: Int = -1
     private var mPosition: Int = -1
     private var mTextCoord: Int = -1
     private var mMvpMatrix: Int = -1
@@ -32,9 +30,9 @@ class TransitionExecute {
 
     init {
         animProgram = GlUtil.createProgram(GlUtil.readRawResourse(R.raw.simple_vertex_shader),
-            GlUtil.readRawResourse(R.raw.squeeze_fragment))
-        vertexArray = GLDrawableUtils.common_vertext_coord
-        fragmentArray = GLDrawableUtils.common_fragment_coord
+            GlUtil.readRawResourse(R.raw.windowslice_fragment))
+        vertexArray = GLDrawableUtils.common_vertext_coord_full
+        fragmentArray = GLDrawableUtils.common_fbo_fragment_coord
         Matrix.setIdentityM(mvpMatrix,0)
         initValue()
     }
@@ -44,26 +42,21 @@ class TransitionExecute {
         GLES20.glClearColor(0f, 0f, 0f, 0f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         GLES20.glUseProgram(animProgram)
-        GlUtil.checkGlError("glUseProgram")
 
         setVertexAttribPointer(mPosition, vertexArray)
         setVertexAttribPointer(mTextCoord, fragmentArray)
         setUniformMatrix4fv(mMvpMatrix,mvpMatrix)
         setUniform1f(mProgress,process)
-        GlUtil.checkGlError("setVertexAttribPointer")
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,textureId1)
         setUniform1i(mTexture,0)
-        GlUtil.checkGlError("glActiveTexture 1")
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,textureId2)
         setUniform1i(mTexture,1)
-        GlUtil.checkGlError("glActiveTexture 2")
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GlUtil.checkGlError("glDrawArrays")
 
         GLES20.glDisableVertexAttribArray(mPosition)
         GLES20.glDisableVertexAttribArray(mTextCoord)
@@ -73,15 +66,14 @@ class TransitionExecute {
 
 
     private fun initValue() {
-        mPosition = GLES20.glGetAttribLocation(mProgram, "aPosition")
-        mTextCoord = GLES20.glGetAttribLocation(mProgram, "aTextCoord")
-        mMvpMatrix = GLES20.glGetUniformLocation(mProgram, "aMvpMatrix")
-
-        mTexture = GLES20.glGetUniformLocation(mProgram, "uTexture")
-        mTexture2 = GLES20.glGetUniformLocation(mProgram, "uTexture2")
-        mProgress = GLES20.glGetUniformLocation(mProgram, "progress")
-        mDirection = GLES20.glGetUniformLocation(mProgram, "direction")
-    }
+        mPosition = GLES20.glGetAttribLocation(animProgram, "aPosition")
+        mTextCoord = GLES20.glGetAttribLocation(animProgram, "aTextCoord")
+        mMvpMatrix = GLES20.glGetUniformLocation(animProgram, "aMvpMatrix")
+        mTexture = GLES20.glGetUniformLocation(animProgram, "uTexture")
+        mTexture2 = GLES20.glGetUniformLocation(animProgram, "uTexture2")
+        mProgress = GLES20.glGetUniformLocation(animProgram, "progress")
+        mDirection = GLES20.glGetUniformLocation(animProgram, "direction")
+     }
 
     private fun setVertexAttribPointer(attrKey: Int, attrValue: FloatArray) {
         GLES20.glEnableVertexAttribArray(attrKey)

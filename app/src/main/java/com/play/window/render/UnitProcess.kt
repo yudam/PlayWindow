@@ -7,7 +7,9 @@ import com.play.window.R
 import com.play.window.model.GLRect
 import com.play.window.render.gles.GlUtil
 import com.play.window.render.model.GlFrameBuffer
+import com.play.window.render.model.Stream
 import com.play.window.render.model.TextureInfo
+import com.play.window.render.process.OpenglUtil
 
 /**
  * User: maodayu
@@ -36,6 +38,19 @@ class UnitProcess {
         textureList.add(info)
     }
 
+    fun updateTextureInfo(info: TextureInfo){
+        textureList.forEach {
+            if(it.stream == info.stream){
+                it.texture = info.texture
+                it.rect = info.rect
+                it.isOES = info.isOES
+            }
+        }
+    }
+
+    /**
+     * 外层必须优先调用该方法设置渲染范围，生成FBO
+     */
     fun setRenderSize(width: Int, height: Int) {
         initOutPut(width,height)
     }
@@ -43,7 +58,7 @@ class UnitProcess {
     private fun initOutPut(width: Int, height: Int) {
         glFrameBuffer = GlUtil.prepareFrameBuffer(width, height)
         val rect = GLRect(width / 2f, height / 2f, width.toFloat(), height.toFloat(), width.toFloat(), height.toFloat())
-        outPutTextureInfo = TextureInfo(glFrameBuffer!!.textureId, rect, false)
+        outPutTextureInfo = TextureInfo(Stream.STREAM_PREVIEW,glFrameBuffer!!.textureId, rect, false)
     }
 
 
@@ -66,40 +81,10 @@ class UnitProcess {
                 }
             }
             GLES20.glViewport(0, 0, it.rect.pw.toInt(), it.rect.ph.toInt())
-            it.mProgram?.render(parseVertexArray(it.rect), parseFragmentArray(it.rect), it.texture,
+            it.mProgram?.render(OpenglUtil.parseVertexArray(it.rect), OpenglUtil.parseFragmentArray(it.rect), it.texture,
                 matrix, it.isOES)
         }
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-    }
-
-
-    private fun parseVertexArray(rect: GLRect): FloatArray {
-
-        val cx = (rect.cx / rect.pw) * 2 - 1
-        val cy = (rect.cy / rect.ph) * 2 - 1
-        val w = (rect.width / rect.pw) * 2
-        val h = (rect.height / rect.ph) * 2
-        val vertex = floatArrayOf(
-            cx - w / 2, cy + h / 2,      // bottom left
-            cx + w / 2, cy + h / 2,      // bottom right
-            cx - w / 2, cy - h / 2,      // top left
-            cx + w / 2, cy - h / 2       // top right
-        )
-        return vertex
-    }
-
-    private fun parseFragmentArray(rect: GLRect): FloatArray {
-        val cx = rect.cx / rect.pw
-        val cy = rect.cy / rect.ph
-        val w = rect.width / rect.pw
-        val h = rect.height / rect.ph
-        val fragment = floatArrayOf(
-            cx - w / 2, cy - h / 2,      // top left
-            cx + w / 2, cy - h / 2,      // top right
-            cx - w / 2, cy + h / 2,      // bottom left
-            cx + w / 2, cy + h / 2       // bottom right
-        )
-        return fragment
     }
 }

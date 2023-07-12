@@ -43,6 +43,7 @@
             <option value="$PROJECT_DIR$/exoplayer/robolectricutils" />
             <option value="$PROJECT_DIR$/exoplayer/testdata" />
             <option value="$PROJECT_DIR$/exoplayer/testutils" />
+            <option value="$PROJECT_DIR$/virtualcamera" />
           </set>
         </option>
       </GradleProjectSettings>

@@ -7,20 +7,18 @@
 #define logi(...) __android_log_print(ANDROID_LOG_INFO,"AACEncoder",__VA_ARGS__)
 
 void AACEncoder::startAudio(const char *url) {
+
+    /**注册组件*/
     av_register_all();
 
-    /**
-     * 申请一个输出文件上下文，该函数会创建 avFormatContext
-     */
+    /** 申请一个输出文件上下文，该函数会创建 avFormatContext */
     int ret = avformat_alloc_output_context2(&avFormatContext, nullptr, nullptr, url);
     if (ret < 0) {
         logi("avformat_alloc_output_context2: %s",url);
         return;
     }
 
-    /**
-     * 打开输出文件
-     */
+    /** 打开输出文件 */
     ret = avio_open(&avFormatContext->pb, url, AVIO_FLAG_READ_WRITE);
     if (ret < 0) {
         logi("avio_open");
@@ -98,7 +96,11 @@ void AACEncoder::startAudio(const char *url) {
      * 初始化AVFrame，并且分配内存大小，最后初始化 SwrContext用于后续的pcm数据转换
      */
     avFrame = av_frame_alloc();
-    // 音频对应的一个AVFrame中包含多少个音频帧，这里表示多少个，默认frame_size为1024
+
+    /**
+     * 音频对应的一个AVFrame中包含多少个音频帧，这里表示多少个，默认frame_size为1024
+     * nb_samples：表示但个通道中一帧音频包含的采样数
+     */
     avFrame->nb_samples = avCodecContext->frame_size;
     avFrame->format = avCodecContext->sample_fmt;
 
@@ -143,11 +145,22 @@ void AACEncoder::setFrameData(const uint8_t *data, int len) {
     /**
      *  定义输出数据保存的数组，len为4096
      *  AV_SAMPLE_FMT_FLTP采样格式采用两个数组，也就是data[0]和data[1]来存储
+     *
+     *  swr_convert第三个和第五个参数表示单通道样本的数量，不是字节数
+     *
+     *  采样大小len = (位深)2 * (通道数)2 * (采样数)1024
+     *  len / 4 表示传入的音频数据但各个通道的采样数：
+     *
+     *  注意out_count 一定要大于in_count
+     *
+     *  ret表示返回的单个通道的采样数，值一般小于预期的采样数，
+     *
      */
     uint8_t *out[2];
     out[0] = new uint8_t[len];
     out[1] = new uint8_t[len];
     int ret = swr_convert(swr, (uint8_t **) &out, len * 4, &data, len / 4);
+    logi("  swr_convert  per count : %d    len:  %d",ret,len);
     if (ret < 0) {
         logi("swr_convert");
     }

@@ -82,6 +82,10 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         onFrame()
     }
 
+    /**
+     * 这里的Surface做为MediaCodec的输入源，我们需要在调用WindowSurface的swapBuffers之前通过
+     * setPresentationTime函数来设置inputSurface的时间戳
+     */
     fun getEncoderSurface(): Surface {
         if (surface == null) {
             synchronized(lock) {
@@ -127,29 +131,38 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                     // 获取sps和pps
                     val sps = mMediaCodec.outputFormat.getByteBuffer("csd-0")
                     val pps = mMediaCodec.outputFormat.getByteBuffer("csd-1")
-                    Log.i(TAG, "sps: " + Utils.bytesToHex(sps?.array()))
+                    Log.i(TAG, "sps-----------: " + Utils.bytesToHex(sps?.array()))
                     sps?.array()?.forEachIndexed { index, byte ->
                         Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
-                    Log.i(TAG, "pps: " + Utils.bytesToHex(pps?.array()))
+                    Log.i(TAG, "pps-----------: " + Utils.bytesToHex(pps?.array()))
                     pps?.array()?.forEachIndexed { index, byte ->
                         Log.i(TAG, "index: " + index + "   byte: " + byte)
                     }
 
+
+                    val csd_0 = ByteBuffer.allocateDirect(sps?.capacity()?:1)
+                    csd_0.put(sps)
+                    csd_0.rewind()
+
+                    val csd_1 = ByteBuffer.allocateDirect(pps?.capacity()?:1)
+                    csd_1.put(pps)
+                    csd_1.rewind()
+
+
                     val packet = MediaPacket().apply {
                         isCsd = true
-                        csd0 = sps
-                        csd1 = pps
+                        isVideo = true
+                        csd0 = csd_0
+                        csd1 = csd_1
                         pts = System.currentTimeMillis() * 1000
-                        csd0Size = sps?.remaining() ?: 0
-                        csd1Size = pps?.remaining() ?: 0
+                        csd0Size = csd_0.remaining()
+                        csd1Size = csd_1.remaining()
+                        data = ByteBuffer.allocateDirect(1)
                     }
 
                     dataListener?.notifyHeaderData(packet)
 
-                } else if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                    // 表示当前缓冲区携带的是编码器的初始化信息，并不是媒体数据
-                    Log.i(TAG, "BUFFER_FLAG_CODEC_CONFIG: ")
                 } else {
                     // 当前缓冲区是关键帧信息
                     if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
@@ -162,12 +175,11 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                         it.get(videoArray, mBufferInfo.offset, mBufferInfo.size)
                     }
 
-                    //   Log.i(TAG, "onFrame: "+Utils.bytesToHex(videoArray.copyOfRange(0,4)))
-
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false)
 
-
                     val videoPTS = getPts()
+
+                    Log.i(TAG, "pts: "+mBufferInfo.presentationTimeUs+"   time: "+videoPTS)
                     val buffer = ByteBuffer.allocateDirect(videoArray.size)
                     buffer.put(videoArray)
                     buffer.clear()
@@ -180,6 +192,9 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                         pts = videoPTS
                         isVideo = true
                         bufferSize = data?.remaining() ?: 0
+
+                        csd0 = ByteBuffer.allocateDirect(1)
+                        csd1 = ByteBuffer.allocateDirect(1)
                     }
                     dataListener?.notifyAvailableData(pkt)
                 }
@@ -192,12 +207,17 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
 
     private var lastPresentationTimeUs = 0L
 
+    //private var expectNextTimeUs = 0L
+
 
     private val duration = 1000 / 30f
 
     /**
      * 这里视频的pts如果是ms的话后续合成MP4时会变成慢放的形式
      *
+     * 因为这里是合成MP4文件，所以pts值按照帧数的间隔来递增就可以保证视频的流畅
+     *
+     * 如果是实时播放的话，就需要计算时间之间的误差，来减少卡顿
      */
     private fun getPts(): Long {
         if (lastPresentationTimeUs == 0L) {
@@ -205,6 +225,7 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
         } else {
             lastPresentationTimeUs += duration.toInt()
         }
+        //expectNextTimeUs = lastPresentationTimeUs + duration.toInt()
         return lastPresentationTimeUs * 1000
     }
 

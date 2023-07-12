@@ -1,12 +1,18 @@
 package com.play.window
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.ViewGroup
+import android.widget.Button
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.chad.library.adapter.base.BaseQuickAdapter
+import com.chad.library.adapter.base.viewholder.QuickViewHolder
 import com.play.window.capture.AudioNativeEncoder
 import com.play.window.databinding.ActivityMainBinding
 import com.play.window.utils.RecordUtil
@@ -20,9 +26,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    private var aacEncoder: AudioNativeEncoder? = null
-    private var isEncoder = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -30,44 +33,29 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
 
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 123)
-
-        binding.btnTest.setOnClickListener {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 123)
-            } else {
-                val resList = getVideoFromSDCard()
-                val videoPath = resList.find { it.endsWith("045.mp4") } ?: resList[0]
-                if (resList.isNotEmpty()) {
-                    BaseNative.app_Open(videoPath, "rtmp://172.16.0.97:1935/live/room")
-                }
-            }
-        }
-
-
-        ActivityCompat.requestPermissions(this,
-            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.RECORD_AUDIO,
-        ), 123)
-
-
-        binding.btnAac.setOnClickListener {
-            if(isEncoder){
-                isEncoder = false
-                aacEncoder?.stopAudioRecord()
-            } else {
-                if(aacEncoder == null){
-                    aacEncoder = AudioNativeEncoder()
-                }
-                aacEncoder?.startAudioRecord(getAudioPath())
-                isEncoder = true
-            }
-        }
     }
 
+
+    class FunctionAdapter(dataList: List<Function>) : BaseQuickAdapter<Function, QuickViewHolder>(dataList) {
+
+        override fun onCreateViewHolder(context: Context, parent: ViewGroup, viewType: Int): QuickViewHolder {
+
+            return QuickViewHolder(R.layout.func_list_item, parent)
+        }
+
+
+        override fun onBindViewHolder(holder: QuickViewHolder, position: Int, item: Function?) {
+            val btnItem = holder.getView<Button>(R.id.btn_item)
+            btnItem.text = item?.name
+        }
+
+    }
+
+
+    data class Function(
+        val name: String,
+        val target: String,
+    )
 
     private fun getVideoFromSDCard(): List<String> {
         var list = ArrayList<String>(10)
@@ -83,7 +71,6 @@ class MainActivity : AppCompatActivity() {
         cursor.close()
         return list
     }
-
 
 
     private fun getAudioPath(): String {

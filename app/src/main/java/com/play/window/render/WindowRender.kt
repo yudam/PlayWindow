@@ -7,6 +7,7 @@ import android.opengl.GLES30
 import android.opengl.Matrix
 import android.os.Handler
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import android.view.Window
 import com.play.window.R
@@ -19,7 +20,9 @@ import com.play.window.render.gles.EglCore
 import com.play.window.render.gles.EglCore2
 import com.play.window.render.gles.GlUtil
 import com.play.window.render.model.BitmapScene
+import com.play.window.render.model.TextureInfo
 import com.play.window.render.model.Transtion
+import com.play.window.render.process.OpenglUtil
 import com.play.window.temp.GlUtils
 import java.util.concurrent.locks.ReentrantLock
 
@@ -35,11 +38,15 @@ class WindowRender() {
     private var windowHandler: Handler? = null
     private val surfaceList = mutableListOf<SurfaceParam>()
     private val surfaceMap = mutableMapOf<Int, DrawSurface?>()
-    private var previewSurfaceId = 0
+    private var previewSurfaceId = -1
 
     private var encoderSurfaceId = -11
 
+    private var directorSurfaceId = -12
+
     private val shareLock = ReentrantLock()
+
+    private val sizeMap = mutableMapOf<Int, Size>()
 
 
     init {
@@ -58,28 +65,60 @@ class WindowRender() {
 
     }
 
+
     /**
      * 添加SurfaceTexture
      */
     fun addDisplaySurface(info: DisplayInfo) {
-
-        var param = VideoParse.getSurfaceParam(info.url)
-        if (param == null) {
-            param = createTextureInfo(info)
-            VideoParse.addSurfaceParam(info.url!!, param)
-            VideoPlayer(info.url!!, Surface(param.surfaceTexture))
-            previewSurfaceId = info.surfaceId
-        } else {
-            info.mTetxureId = param.texture
-        }
-        val drawSurface = DrawSurface(mEglCore?.sharedContext,shareLock).apply {
-            setSurface(info.surfaceTexture)
+        val drawSurface = DrawSurface(mEglCore?.sharedContext, shareLock).apply {
             setRenderSize(info.rect.pw.toInt(), info.rect.ph.toInt())
             setFps(info.fps)
         }
         drawSurface.scheduleEvent(mEglCore!!)
-        drawSurface.addDisplaySurface(info.mTetxureId!!, info.rect)
+        drawSurface.addDisplaySurface(info.surfaceTexture)
         surfaceMap[info.surfaceId] = drawSurface
+
+        if (info.url != null) {
+            val param = createTextureInfo(info)
+            VideoParse.addSurfaceParam(info.url!!, param)
+            openVideo(info, param.surfaceTexture!!)
+        }
+
+
+        // previewSurfaceId = info.surfaceId
+    }
+
+
+    fun updateSurface(surfaceTexture: Any,surfaceId:Int,rect: GLRect) {
+
+        val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
+        previewSurfaceId = surfaceId
+        val drawSurface = surfaceMap[previewSurfaceId] ?: return
+        val renderInfo = drawSurface.getTextureInfo() ?: return
+        val encoderView = surfaceMap[encoderSurfaceId]
+        if(encoderView == drawSurface) return
+        if(encoderView != null){
+            val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
+            OpenglUtil.scaleVideoRect(rect, size.width, size.height)
+            if(preInfo == null) {
+                encoderView.updateScene(renderInfo.texture, rect, renderInfo.isOES)
+            } else {
+                encoderView.setTranstion(Transtion(preInfo.clone(rect),renderInfo.clone(rect),false))
+                encoderView.updateScene(renderInfo.texture, rect, renderInfo.isOES)
+            }
+        } else {
+            val encoderSurface = DrawSurface(mEglCore?.sharedContext, shareLock,true).apply {
+                setRenderSize(rect.pw.toInt(), rect.ph.toInt())
+                setFps(drawSurface.getFps())
+                setEncode(true)
+            }
+            encoderSurface.scheduleEvent(mEglCore!!)
+            encoderSurface.addDisplaySurface(surfaceTexture)
+            val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
+            OpenglUtil.scaleVideoRect(rect, size.width, size.height)
+            encoderSurface.addScene(renderInfo.texture, rect, renderInfo.isOES)
+            surfaceMap[encoderSurfaceId] = encoderSurface
+        }
     }
 
     /**
@@ -88,7 +127,7 @@ class WindowRender() {
     fun addTransition(nextInfo: DisplayInfo) {
         val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
         val nextInfo = surfaceMap[nextInfo.surfaceId]?.getTextureInfo()
-        if(preInfo == null || nextInfo == null) return
+        if (preInfo == null || nextInfo == null) return
         val transtion = Transtion(preInfo, nextInfo, false)
         surfaceMap[previewSurfaceId]?.setTranstion(transtion)
     }
@@ -105,14 +144,16 @@ class WindowRender() {
     fun setEncoderSurface(surface: Any?, rect: GLRect) {
         val drawSurface = surfaceMap[previewSurfaceId] ?: return
         val renderInfo = drawSurface.getTextureInfo() ?: return
-        val encoderSurface = DrawSurface(mEglCore?.sharedContext,shareLock).apply {
-            setSurface(surface)
+        val encoderSurface = DrawSurface(mEglCore?.sharedContext, shareLock).apply {
             setRenderSize(rect.pw.toInt(), rect.ph.toInt())
             setFps(drawSurface.getFps())
             setEncode(true)
         }
         encoderSurface.scheduleEvent(mEglCore!!)
-        encoderSurface.addDisplaySurface(renderInfo.texture, rect, renderInfo.isOES)
+        encoderSurface.addDisplaySurface(surface)
+        val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
+        OpenglUtil.scaleVideoRect(rect, size.width, size.height)
+        encoderSurface.addScene(renderInfo.texture, rect, renderInfo.isOES)
         surfaceMap[encoderSurfaceId] = encoderSurface
     }
 
@@ -123,7 +164,22 @@ class WindowRender() {
 
     fun addBitmap(scene: BitmapScene) {
         val texture = GlUtils.getTexture(scene.bitmap)
-        surfaceMap[scene.surfaceId]?.addBitmap(texture, scene.rect)
+        surfaceMap[scene.surfaceId]?.addOverlay(texture, scene.rect)
+    }
+
+
+    /**
+     * 打开本地视频
+     */
+    private fun openVideo(info: DisplayInfo, surfaceTexture: SurfaceTexture) {
+        val videoPlayer = VideoPlayer(info.url!!, Surface(surfaceTexture))
+        videoPlayer.addPrepareVideoCallback { width, height ->
+            sizeMap[info.surfaceId] = Size(width, height)
+            val drawSurface = surfaceMap[info.surfaceId]
+            val newRect = OpenglUtil.scaleVideoRect(info.rect, width, height)
+            info.rect = newRect
+            drawSurface?.addScene(info.mTetxureId!!, newRect)
+        }
     }
 
     /**

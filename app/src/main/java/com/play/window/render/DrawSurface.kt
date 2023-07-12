@@ -11,8 +11,10 @@ import android.view.Surface
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
 import com.play.window.render.gles.EglCore
+import com.play.window.render.gles.GlUtil
 import com.play.window.render.gles.OffscreenSurface
 import com.play.window.render.gles.WindowSurface
+import com.play.window.render.model.Stream
 import com.play.window.render.model.TextureInfo
 import com.play.window.render.model.Transtion
 import java.util.concurrent.locks.ReentrantLock
@@ -23,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock
  * Time: 09:56
  * 处理Surface的渲染,每一个Surface都有对应的DrawSurface
  */
-class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : Runnable {
+class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,val ownThread:Boolean = false) : Runnable {
 
     private var mLooper: Looper? = null
     private var drawHandler: Handler? = null
@@ -48,14 +50,18 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
     private var mWindowSurface: WindowSurface? = null
     private var mOffscreenSurface: OffscreenSurface? = null
 
-    private var transtion:Transtion? = null
+    private var transtion: Transtion? = null
     private var transtionAnim: TranstionAnim? = null
 
     private var isEncode = false
 
 
     init {
-        //Thread(this).start()
+//        if(ownThread){
+//            Thread(this).apply {
+//                name = "Thread-DrawSurface"
+//            }.start()
+//        }
     }
 
     override fun run() {
@@ -73,7 +79,7 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
 
 
     fun scheduleEvent(eglCore: EglCore) {
-        mEglCore  = eglCore
+        mEglCore = eglCore
         graphProcess = GraphProcess(shareLock)
         drawHandler = object : Handler(Looper.myLooper()!!) {
             override fun handleMessage(msg: Message) {
@@ -83,17 +89,25 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
                     }
                     ADDSCENE -> {
                         val sceneInfo = msg.obj as TextureInfo
-                        if(isEncode){
-                            graphProcess?.setFBO(false)
+                        if (isEncode) {
+                            //graphProcess?.setFBO(false)
                         }
                         graphProcess?.addTextureInfo(sceneInfo)
-                        graphProcess?.setRenderSize(mRendeWidth,mRenderHeight)
+                        graphProcess?.setRenderSize(mRendeWidth, mRenderHeight)
                         drawTimeControll()
                     }
 
                     DRAWSCENE -> {
                         drawTimeControll()
                     }
+
+//                    TRANSTIONANIM -> {
+//                        transtionAnim = TranstionAnim().apply {
+//                            GlUtil.checkGlError("TRANSTIONANIM")
+//                            setRenderSize(mRendeWidth, mRenderHeight)
+//                            initTranstion()
+//                        }
+//                    }
                 }
             }
         }
@@ -101,7 +115,7 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
         /**
          * 必须加上这句话，否则会有一个奇怪的现象：创建的纹理和FBO都为0
          */
-        mEglCore?.makeCurrent(null,null)
+        mEglCore?.makeCurrent(null, null)
         synchronized(lock) {
             lock.notifyAll()
         }
@@ -139,17 +153,24 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
     private var lastTime = 0L
 
     private fun drawScene() {
-
-        if(isEncode){
-            val currTime = System.nanoTime()
-
-            Log.i("DRAWSURFACE", "offset: "+(currTime-lastTime)/1000/1000+"    fps:"+frameRate)
-            lastTime = currTime
-        }
         mWindowSurface?.makeCurrent()
-        synchronized(renderLock) {
-            graphProcess?.draw()
+        if (transtionAnim != null && !transtionAnim!!.isFinish()) {
+            drawTranstion()
+        } else {
+            if (isEncode) {
+                val currTime = System.nanoTime()
+                Log.i("DRAWSURFACE", "offset: " + (currTime - lastTime) / 1000 / 1000 + "    fps:" + frameRate)
+                lastTime = currTime
+            }
+            synchronized(renderLock) {
+                graphProcess?.draw()
+            }
         }
+
+        /**
+         * 将当前时间戳传入EGL中，当通过Surface获取数据时，可以获取到对应的时间戳pts
+         */
+        mWindowSurface?.setPresentationTime(System.currentTimeMillis() * 1000 * 1000)
         mWindowSurface?.swapBuffers()
     }
 
@@ -157,24 +178,24 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
      * 只有预览界面的DrawSurface才可以设置 Transtion，执行转场动画
      *
      */
-    private fun drawTranstion(){
-        if(transtionAnim == null){
-            transtionAnim = TranstionAnim().apply {
-                setRenderSize(mRendeWidth,mRenderHeight)
-                initTranstion()
-            }
-        }
+    private fun drawTranstion() {
+        // 1.
         transtionAnim?.openFbo1()
-        synchronized(renderLock) {
-            graphProcess?.draw()
+        graphProcess?.let {
+            it.getOutProcess()?.addTextureInfo(transtion!!.preInfo)
+            it.getOutProcess()?.draw()
         }
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER,0)
-        transtionAnim?.openFbo2()
-        synchronized(renderLock) {
-            graphProcess?.draw()
-        }
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER,0)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
+        //2.
+        transtionAnim?.openFbo2()
+        graphProcess?.let {
+            it.getOutProcess()?.addTextureInfo(transtion!!.nextInfo)
+            it.getOutProcess()?.draw()
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+        // 3.
         transtionAnim?.anim()
     }
 
@@ -197,7 +218,8 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
     /**
      *  添加渲染表面
      */
-    fun addDisplaySurface(texture:Int,rect: GLRect,isOES:Boolean = true) {
+    fun addDisplaySurface(surface:Any?) {
+        this.mSurface = surface
         synchronized(lock) {
             if (drawHandler == null) {
                 lock.wait()
@@ -205,38 +227,68 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
         }
         drawHandler?.let {
             it.sendMessage(it.obtainMessage(SURFACEVALID))
-            it.sendMessage(it.obtainMessage(ADDSCENE, TextureInfo(texture,rect,isOES)))
         }
 
     }
 
-    fun addBitmap(texture: Int, rect: GLRect) {
-        graphProcess?.addTextureInfo(TextureInfo(texture, rect, false))
+    /**
+     * 添加纹理
+     */
+    fun addScene(texture: Int, rect: GLRect, isOES: Boolean = true){
+        synchronized(lock) {
+            if (drawHandler == null) {
+                lock.wait()
+            }
+        }
+        drawHandler?.let {
+            it.sendMessage(it.obtainMessage(ADDSCENE, TextureInfo(Stream.STREAM_PREVIEW,texture, rect, isOES)))
+        }
     }
 
-    fun setTranstion(transtion: Transtion){
+    fun updateScene(texture: Int, rect: GLRect, isOES: Boolean = true){
+        graphProcess?.updateTextureInfo(TextureInfo(Stream.STREAM_PREVIEW,texture, rect, isOES))
+    }
+
+    /**
+     * 添加额外的水印
+     */
+
+    fun addOverlay(texture: Int, rect: GLRect){
+        graphProcess?.addTextureInfo(TextureInfo(Stream.STREAM_OVERLAY,texture, rect, false))
+    }
+
+    fun setTranstion(transtion: Transtion) {
+        GlUtil.checkGlError("setTranstion")
         this.transtion = transtion
+//        drawHandler?.let {
+//            it.sendMessage(it.obtainMessage(TRANSTIONANIM))
+//        }
+        transtionAnim = TranstionAnim().apply {
+            GlUtil.checkGlError("TRANSTIONANIM")
+            setRenderSize(mRendeWidth, mRenderHeight)
+            initTranstion()
+        }
     }
 
-    fun setRenderSize(width:Int,height:Int){
+    fun setRenderSize(width: Int, height: Int) {
         this.mRendeWidth = width
         this.mRenderHeight = height
     }
 
-    fun setFps(fps:Int){
+    fun setFps(fps: Int) {
         this.frameRate = fps
     }
 
-    fun getFps():Int{
+    fun getFps(): Int {
 
         return frameRate
     }
 
-    fun setSurface(surface: Any?){
+    fun setSurface(surface: Any?) {
         this.mSurface = surface
     }
 
-    fun getSurface():Any?{
+    fun getSurface(): Any? {
         return mSurface
     }
 
@@ -248,7 +300,7 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
         return graphProcess?.getOutPutInfo()
     }
 
-    fun setEncode(isEncode:Boolean){
+    fun setEncode(isEncode: Boolean) {
         this.isEncode = isEncode
     }
 
@@ -256,5 +308,6 @@ class DrawSurface(val shareContext: EGLContext?,val shareLock:ReentrantLock) : R
         private const val ADDSCENE = 0x11
         private const val DRAWSCENE = 0x12
         private const val SURFACEVALID = 0x13
+        private const val TRANSTIONANIM = 0x14
     }
 }

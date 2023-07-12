@@ -5,6 +5,7 @@ import android.graphics.SurfaceTexture
 import android.view.Surface
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
+import com.play.window.model.PreviewInfo
 
 /**
  * User: maodayu
@@ -12,6 +13,8 @@ import com.play.window.model.GLRect
  * Time: 11:54
  */
 interface IWindow {
+
+    fun previewSurface(info: PreviewInfo)
 
     fun startPublish()
 

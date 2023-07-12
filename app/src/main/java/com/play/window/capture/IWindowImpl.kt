@@ -21,6 +21,7 @@ import com.play.window.codec.IEncoderDataListener
 import com.play.window.codec.MediaPacket
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
+import com.play.window.model.PreviewInfo
 import com.play.window.muxer.RecordMedia
 import com.play.window.render.SurfaceParam
 import com.play.window.render.WindowRender
@@ -60,20 +61,30 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         }
     }
 
+    private var sendCsd = false
+
     private val listener = object :IEncoderDataListener{
         override fun notifyAvailableData(packet: MediaPacket) {
             Log.i(WindowApp.TAG, "notifyAvailableData: "+packet.data?.remaining()+"  pts: "+packet.pts+"  isVideo:"+packet.isVideo)
-            record?.addPacket(packet)
+            //record?.addPacket(packet)
+
+            if(packet.isVideo && sendCsd){
+                BaseNative.sendPacket(packet)
+            }
         }
 
         override fun notifyMediaFormat(format: MediaFormat, isVideo: Boolean) {
-            record?.addTrack(format,!isVideo)
+           // record?.addTrack(format,!isVideo)
         }
 
         override fun notifyHeaderData(packet: MediaPacket) {
-            Log.i(WindowApp.TAG, "sps: "+packet.csd0?.remaining()+
+            Log.i("JNILOG", "sps: "+packet.csd0?.remaining()+
                 "  pps:"+packet.csd1?.remaining()+"  pts:" + packet.pts)
-            record?.addPacket(packet)
+           // record?.addPacket(packet)
+            if(packet.isVideo){
+                sendCsd = true
+                BaseNative.sendPacket(packet)
+            }
         }
 
         override fun notifyEnd() {
@@ -89,8 +100,21 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                 override fun handleMessage(msg: Message) {
                     when (msg.what) {
 
+                        PREVIEWSURFACE -> {
+                            val info = msg.obj as PreviewInfo
+                            windowRender?.updateSurface( info.surfaceTexture,info.previewSurfaceId,info.glRect)
+                        }
+
                         STARTPUBLISH -> {
                             Log.i(WindowApp.TAG, "STARTPUBLISH: ")
+                            val config = msg.obj as MediaConfig
+                            BaseNative.initPublish(config.publishUrl,config.videoBitRate,
+                                config.videoFrameRate,config.videoWidth,config.videoHeight)
+                            BaseNative.connect()
+                            h264Encoder =  H264Encoder(MediaConfig()).apply {
+                                setListener(listener)
+                                windowRender?.setEncoderSurface( getEncoderSurface(),getRect())
+                            }
                         }
 
                         STOPPUBLISH -> {
@@ -140,8 +164,20 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         }
     }
 
+    override fun previewSurface(info: PreviewInfo) {
+        val message =  Message().apply {
+            obj = info
+            what = PREVIEWSURFACE
+        }
+        windowHandler?.sendMessage(message)
+    }
+
     override fun startPublish() {
-        windowHandler?.sendEmptyMessage(STARTPUBLISH)
+        val message =  Message().apply {
+            obj = MediaConfig()
+            what = STARTPUBLISH
+        }
+        windowHandler?.sendMessage(message)
     }
 
     override fun stopPublish() {
@@ -221,5 +257,6 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         private const val COPYSURFACE = 0x16
         private const val RECORDAV = 0x17
         private const val STOPRECOR = 0x18
+        private const val PREVIEWSURFACE = 0x19
     }
 }

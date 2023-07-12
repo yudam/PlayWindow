@@ -62,4 +62,3 @@ AVCC格式：([extradata]) | ([length]NALU) | ([length]NALU)
 在FFMPEG的extradata数组中包含了sps和pps的数据，数据由一些固定参数、sps和pps的相关数据计算得出，
 
 
-

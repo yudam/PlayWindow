@@ -7,6 +7,6 @@ package com.play.window.model
  */
 data class GLRect(
     val cx: Float, val cy: Float,
-    val width: Float, val height: Float,
+    var width: Float, var height: Float,
     val pw: Float, val ph: Float,
 )
