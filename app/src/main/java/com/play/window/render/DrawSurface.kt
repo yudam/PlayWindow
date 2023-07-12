@@ -24,6 +24,8 @@ import java.util.concurrent.locks.ReentrantLock
  * Date: 2023/4/17
  * Time: 09:56
  * 处理Surface的渲染,每一个Surface都有对应的DrawSurface
+ *
+ * 预览界面不需要传递输出纹理给额外的Surface，所以在单独的线程中执行
  */
 class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,val ownThread:Boolean = false) : Runnable {
 
@@ -57,11 +59,11 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
 
 
     init {
-//        if(ownThread){
-//            Thread(this).apply {
-//                name = "Thread-DrawSurface"
-//            }.start()
-//        }
+        if(ownThread){
+            Thread(this).apply {
+                name = "Thread-DrawSurface"
+            }.start()
+        }
     }
 
     override fun run() {
@@ -101,13 +103,13 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
                         drawTimeControll()
                     }
 
-//                    TRANSTIONANIM -> {
-//                        transtionAnim = TranstionAnim().apply {
-//                            GlUtil.checkGlError("TRANSTIONANIM")
-//                            setRenderSize(mRendeWidth, mRenderHeight)
-//                            initTranstion()
-//                        }
-//                    }
+                    TRANSTIONANIM -> {
+                        transtionAnim = TranstionAnim().apply {
+                            GlUtil.checkGlError("TRANSTIONANIM")
+                            setRenderSize(mRendeWidth, mRenderHeight)
+                            initTranstion()
+                        }
+                    }
                 }
             }
         }
@@ -179,23 +181,20 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
      *
      */
     private fun drawTranstion() {
-        // 1.
         transtionAnim?.openFbo1()
-        graphProcess?.let {
-            it.getOutProcess()?.addTextureInfo(transtion!!.preInfo)
-            it.getOutProcess()?.draw()
-        }
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-
-        //2.
-        transtionAnim?.openFbo2()
         graphProcess?.let {
             it.getOutProcess()?.addTextureInfo(transtion!!.nextInfo)
             it.getOutProcess()?.draw()
         }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
-        // 3.
+        transtionAnim?.openFbo2()
+        graphProcess?.let {
+            it.getOutProcess()?.addTextureInfo(transtion!!.preInfo)
+            it.getOutProcess()?.draw()
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
         transtionAnim?.anim()
     }
 
@@ -260,13 +259,8 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
     fun setTranstion(transtion: Transtion) {
         GlUtil.checkGlError("setTranstion")
         this.transtion = transtion
-//        drawHandler?.let {
-//            it.sendMessage(it.obtainMessage(TRANSTIONANIM))
-//        }
-        transtionAnim = TranstionAnim().apply {
-            GlUtil.checkGlError("TRANSTIONANIM")
-            setRenderSize(mRendeWidth, mRenderHeight)
-            initTranstion()
+        drawHandler?.let {
+            it.sendMessage(it.obtainMessage(TRANSTIONANIM))
         }
     }
 

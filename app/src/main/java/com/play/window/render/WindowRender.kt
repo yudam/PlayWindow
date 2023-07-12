@@ -89,6 +89,9 @@ class WindowRender() {
     }
 
 
+    /**
+     * 设置、更新预览界面
+     */
     fun updateSurface(surfaceTexture: Any,surfaceId:Int,rect: GLRect) {
 
         val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
@@ -112,29 +115,12 @@ class WindowRender() {
                 setFps(drawSurface.getFps())
                 setEncode(true)
             }
-            encoderSurface.scheduleEvent(mEglCore!!)
             encoderSurface.addDisplaySurface(surfaceTexture)
             val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
             OpenglUtil.scaleVideoRect(rect, size.width, size.height)
             encoderSurface.addScene(renderInfo.texture, rect, renderInfo.isOES)
             surfaceMap[encoderSurfaceId] = encoderSurface
         }
-    }
-
-    /**
-     * 添加转场动画
-     */
-    fun addTransition(nextInfo: DisplayInfo) {
-        val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
-        val nextInfo = surfaceMap[nextInfo.surfaceId]?.getTextureInfo()
-        if (preInfo == null || nextInfo == null) return
-        val transtion = Transtion(preInfo, nextInfo, false)
-        surfaceMap[previewSurfaceId]?.setTranstion(transtion)
-    }
-
-
-    fun addOffScreen() {
-
     }
 
     /**
