@@ -15,7 +15,7 @@ import com.play.window.render.process.OpenglUtil
  * User: maodayu
  * Date: 2023/6/6
  * Time: 19:34
- * 用于绘制出最终渲染的纹理，交给上层使用
+ * FBO中绘制出纹理，交给上层使用
  */
 class UnitProcess {
 
@@ -30,7 +30,7 @@ class UnitProcess {
     }
 
 
-    fun getOutPutTextureInfo():TextureInfo?{
+    fun getOutPutTextureInfo(): TextureInfo? {
         return outPutTextureInfo
     }
 
@@ -38,13 +38,29 @@ class UnitProcess {
         textureList.add(info)
     }
 
-    fun updateTextureInfo(info: TextureInfo){
-        textureList.forEach {
-            if(it.stream == info.stream){
-                it.texture = info.texture
-                it.rect = info.rect
-                it.isOES = info.isOES
+    fun updateTextureInfo(info: TextureInfo) {
+
+        if (textureList.isEmpty()) {
+            textureList.add(info)
+        } else {
+            textureList.forEach {
+                if (it.stream == info.stream) {
+                    it.texture = info.texture
+                    it.rect = info.rect
+                    it.isOES = info.isOES
+                }
             }
+        }
+    }
+
+    /**
+     * 更新纹理大小
+     */
+    private fun updateTextureImageSize(width: Int, height: Int) {
+        outPutTextureInfo?.let {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, it.texture)
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGB, width, height, 0, GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, null)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
         }
     }
 
@@ -52,21 +68,21 @@ class UnitProcess {
      * 外层必须优先调用该方法设置渲染范围，生成FBO
      */
     fun setRenderSize(width: Int, height: Int) {
-        initOutPut(width,height)
+        initOutPut(width, height)
     }
 
     private fun initOutPut(width: Int, height: Int) {
         glFrameBuffer = GlUtil.prepareFrameBuffer(width, height)
         val rect = GLRect(width / 2f, height / 2f, width.toFloat(), height.toFloat(), width.toFloat(), height.toFloat())
-        outPutTextureInfo = TextureInfo(Stream.STREAM_PREVIEW,glFrameBuffer!!.textureId, rect, false)
+        outPutTextureInfo = TextureInfo(Stream.STREAM_SOURCE, glFrameBuffer!!.textureId, rect, false)
     }
 
 
-    fun draw(){
+    fun draw() {
         GLES20.glClearColor(0f, 0f, 0f, 0f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        if(glFrameBuffer == null) return
+        if (glFrameBuffer == null) return
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer!!.frameBufferId)
 

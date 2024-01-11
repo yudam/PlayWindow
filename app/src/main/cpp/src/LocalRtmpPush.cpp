@@ -32,6 +32,8 @@ int LocalRtmpPush::open(const char *infilename, const char *outfilename) {
 
     /**
      * 1. 打开输入流，读取 header
+     * 这里会自动创建AVFormatContext，以及结构体内部的AVIOContext、AVInputFormat对象指针
+     * 解封装
      */
     ret = avformat_open_input(&in_avf_context, infilename, nullptr, nullptr);
     if (ret < 0) {

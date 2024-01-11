@@ -18,7 +18,7 @@ import java.nio.ByteBuffer
  * Date: 2023/4/24
  * Time: 10:34
  */
-class AudioProcess(val listener: IEncoderDataListener) : HandlerThread("AudioProcess") {
+class AudioProcess() : HandlerThread("AudioProcess") {
 
     /**
      * 采样率

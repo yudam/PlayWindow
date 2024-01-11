@@ -10,6 +10,7 @@
 #include "JNIUtil.h"
 #include "aac_encoder.h"
 #include "h264_encoder.h"
+#include "camera_rtmp_push.h"
 
 
 #define logi(...) __android_log_print(ANDROID_LOG_INFO,"JNILOG",__VA_ARGS__)
@@ -26,6 +27,8 @@ static RtmpFlow *rtmpFlow = nullptr;
 static JavaImpl *javaImpl = nullptr;
 static AACEncoder *aacEncoder = nullptr;
 static H264Encoder *h264Encoder = nullptr;
+
+static camera_rtmp_push *cameraRtmpPush = nullptr;
 
 jstring native_stringFromJNI(JNIEnv *jniEnv, jobject object) {
 
@@ -62,47 +65,56 @@ void native_app_close(JNIEnv *env, jobject thiz) {
 
 void native_initPublish(JNIEnv *env, jobject thiz, jstring url, jint video_bit_rate,
                         jint framerate, jint width, jint height) {
-    rtmpFlow = new RtmpFlow();
+    cameraRtmpPush = new camera_rtmp_push();
     const char *rtmp_address = env->GetStringUTFChars(url, nullptr);
-    rtmpFlow->init(const_cast<char *>(rtmp_address), video_bit_rate, framerate, width, height);
-
+    cameraRtmpPush->initRtmp(const_cast<char *>(rtmp_address));
 }
 
 void native_connect(JNIEnv *env, jobject object) {
-    rtmpFlow->connect();
+
 }
 
 void native_sendPacket(JNIEnv *env, jobject object, jobject packet) {
-    MediaPacket *packet1 = new MediaPacket();
-    packet1->pts = env->GetLongField(packet, javaImpl->java_pts);
-    jobject dataBuffer = env->GetObjectField(packet, javaImpl->java_data);
-    packet1->buffer = env->GetDirectBufferAddress(dataBuffer);
-    packet1->bufferSize = env->GetIntField(packet, javaImpl->java_bufferSize);
+    bool isCsd = env->GetBooleanField(packet, javaImpl->java_isCsd);
 
-    packet1->isCsd = env->GetBooleanField(packet, javaImpl->java_isCsd);
+    bool isVideo = env->GetBooleanField(packet, javaImpl->java_isVideo);
+    if (isCsd) {
 
-    jobject csd0_data = env->GetObjectField(packet, javaImpl->java_csd0);
+        if (isVideo) {
+            jobject csd0_data = env->GetObjectField(packet, javaImpl->java_csd0);
+            uint8_t *sps = (uint8_t *) env->GetDirectBufferAddress(csd0_data);
+            jobject csd1_data = env->GetObjectField(packet, javaImpl->java_csd1);
+            uint8_t *pps = (uint8_t *) env->GetDirectBufferAddress(csd1_data);
+            int sps_len = env->GetIntField(packet, javaImpl->java_csd0Size);
+            int pps_len = env->GetIntField(packet, javaImpl->java_csd1Size);
+            cameraRtmpPush->sendSpsPps(sps, pps, sps_len, pps_len);
+        } else {
+            jobject csd0_data = env->GetObjectField(packet, javaImpl->java_csd0);
+            uint8_t *adts = (uint8_t *) env->GetDirectBufferAddress(csd0_data);
+            int adts_len = env->GetIntField(packet, javaImpl->java_csd0Size);
+            cameraRtmpPush->sendADTS(adts, adts_len, 2);
+        }
+    } else {
+        int64_t pts = env->GetLongField(packet, javaImpl->java_pts);
+        logi("   pts :  %ld", pts);
+        jobject dataBuffer = env->GetObjectField(packet, javaImpl->java_data);
+        uint8_t *buffer = (uint8_t *) env->GetDirectBufferAddress(dataBuffer);
+        int bufferSize = env->GetIntField(packet, javaImpl->java_bufferSize);
 
+        if (isVideo) {
+            int key_frame = env->GetIntField(packet, javaImpl->java_key_frame);
+            cameraRtmpPush->sendFrame(buffer, bufferSize, key_frame, pts);
+        } else {
+            cameraRtmpPush->sendAudio(buffer, bufferSize, 2, pts);
+        }
+    }
 
-    jlong len = env->GetDirectBufferCapacity(csd0_data);
-
-    logi("   len  :  %d", len);
-
-    packet1->csd_0 = env->GetDirectBufferAddress(csd0_data);
-
-
-    jobject csd1_data = env->GetObjectField(packet, javaImpl->java_csd1);
-    packet1->csd_1 = env->GetDirectBufferAddress(csd1_data);
-
-    packet1->csd0Size = env->GetIntField(packet, javaImpl->java_csd0Size);
-    packet1->csd1Size = env->GetIntField(packet, javaImpl->java_csd1Size);
-
-    logi("  sps len : %d,   pps len : %d",packet1->csd0Size,packet1->csd1Size);
-    rtmpFlow->sendMediaPacket(packet1);
 }
 
 void native_release(JNIEnv *env, jobject object) {
-    rtmpFlow->release();
+    if (cameraRtmpPush != nullptr) {
+        cameraRtmpPush->stopRtmp();
+    }
 }
 
 void native_startAudioRecord(JNIEnv *env, jobject thiz, jstring path) {
@@ -203,6 +215,7 @@ void loadMediaPacketField(JNIEnv *env) {
     javaImpl->java_bufferSize = env->GetFieldID(javaMediaPacketClass, "bufferSize", "I");
     javaImpl->java_csd0Size = env->GetFieldID(javaMediaPacketClass, "csd0Size", "I");
     javaImpl->java_csd1Size = env->GetFieldID(javaMediaPacketClass, "csd1Size", "I");
+    javaImpl->java_key_frame = env->GetFieldID(javaMediaPacketClass, "keyFrame", "I");
 }
 
 void *startThread(void *args) {
@@ -258,5 +271,6 @@ jobject callObjMethod(JNIEnv *jniEnv, jobject object) {
 
 void jni_method(JNIEnv *jniEnv) {
 
-    jniEnv->FindClass("java/util/ArrayList");
+    jclass jc_alist = jniEnv->FindClass("java/util/ArrayList");
+    jobject jo_alist = jniEnv->NewGlobalRef(jc_alist);
 }

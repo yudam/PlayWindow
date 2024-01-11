@@ -14,7 +14,7 @@ import com.play.window.model.PreviewInfo
  */
 interface IWindow {
 
-    fun previewSurface(info: PreviewInfo)
+    fun previewSurface(info:DisplayInfo)
 
     fun startPublish()
 

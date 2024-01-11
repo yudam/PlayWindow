@@ -6,7 +6,6 @@
 
 #define logi(...) __android_log_print(ANDROID_LOG_INFO,"VideoDecoder",__VA_ARGS__)
 
-
 void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
 
     this->filename = media_file;
@@ -21,7 +20,9 @@ void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
     }
     /**
      * 获取音视频流信息
+     * 探测函数，读取输入文件的一部分
      */
+
     if (avformat_find_stream_info(avFormatContext, nullptr) < 0) {
         return;
     }
@@ -50,9 +51,13 @@ void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
     }
 
     /**
-     * 创建解码器上下文
+     * 通过传递AVCodec编解码信息来初始化上下文
      */
     avCodecContext = avcodec_alloc_context3(avcodec);
+
+    /**
+     * 把流的 AVCodecParameters 里面的编解码参数复制到AVCodecContext
+     */
     if (avcodec_parameters_to_context(avCodecContext, codecpar) < 0) {
         return;
     }
@@ -64,9 +69,15 @@ void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
         return;
     }
 
-    m_videoWidth = avCodecContext->width;
+
+    if (avcodec_is_open(avCodecContext))
+
+        m_videoWidth = avCodecContext->width;
     m_videoHeight = avCodecContext->height;
 
+    /**
+     * 初始化一个AVPacket
+     */
     avPacket = av_packet_alloc();
     // 分配一个AVFrame结构体
     avFrame = av_frame_alloc();
@@ -89,31 +100,70 @@ void VideoDecoder::init(char *media_file, JNIEnv *jniEnv, jobject object) {
 
 void VideoDecoder::startDecoder() {
     /**
-     * 循环读取一帧数据
+     *
+     * 循环读取一帧数据，将AVPacket中buf的引用指向编码数据
      */
-    while (av_read_frame(avFormatContext, avPacket) >= 0) {
 
-        if (avPacket->stream_index != stream_index) {
-            continue;
-        }
+    for (;;) {
 
-        if (avcodec_send_packet(avCodecContext, avPacket) != 0) {
-            logi("avcodec_send_packet  failed");
-            return;
-        }
+        if (int ret = av_read_frame(avFormatContext, avPacket) >= 0) {
+            if (avPacket->stream_index != stream_index) {
+                continue;
+            }
 
-        while (avcodec_receive_frame(avCodecContext, avFrame) == 0) {
             /**
-             * 转换数据格式
+             * 往AVCodecContext 解码器发送一个AVPacket，发送成功后就可以是释放AVPacket
              */
-            sws_scale(swsContext, avFrame->data, avFrame->linesize, 0, avCodecContext->height,
-                      rgbFrame->data, rgbFrame->linesize);
+
+
+            if (avcodec_send_packet(avCodecContext, avPacket) != 0) {
+                logi("avcodec_send_packet  failed");
+                return;
+            }
+
             /**
-             * 发送到窗口
+            * 消除之前AVPacket中对编码数据的引用
+            */
+            av_packet_unref(avPacket);
+
+            /**
+             * 循环从解码器读取一个AVFrame，内部会自动释放AVFrame，所以我们不需要手动释放
              */
-            onFrameAvailable(avFrame);
+            while (avcodec_receive_frame(avCodecContext, avFrame) == 0) {
+                /**
+                 * 转换数据格式，上面解码出来的是YUV数据
+                 */
+                sws_scale(swsContext, avFrame->data, avFrame->linesize, 0, avCodecContext->height,
+                          rgbFrame->data, rgbFrame->linesize);
+                /**
+                 * 发送到窗口
+                 */
+                onFrameAvailable(avFrame);
+            }
+
+        } else {
+            /**
+             * 表示发生了错误或者读到了文件的尾端,此时avpacket中的size和data都为null，
+             * 刷新解码器，释放内部剩余的帧
+             */
+            ret = avcodec_send_packet(avCodecContext, avPacket);
+            av_packet_unref(avPacket);
+            if (ret == 0) {
+                while (avcodec_receive_frame(avCodecContext, avFrame) == 0) {
+                    /**
+                     * 转换数据格式，上面解码出来的是YUV数据
+                     */
+                    sws_scale(swsContext, avFrame->data, avFrame->linesize, 0, avCodecContext->height,
+                              rgbFrame->data, rgbFrame->linesize);
+                    /**
+                     * 发送到窗口
+                     */
+                    onFrameAvailable(avFrame);
+                }
+
+            }
+
         }
-        av_packet_unref(avPacket);
     }
 }
 
@@ -125,7 +175,7 @@ void VideoDecoder::startDecoder() {
 void VideoDecoder::onFrameAvailable(AVFrame *avFrame) {
     aNativeWindow = ANativeWindow_fromSurface(jni_env, java_surface);
     // 设置渲染区域和输入格式
-    ANativeWindow_setBuffersGeometry(aNativeWindow,m_videoWidth,m_videoHeight,WINDOW_FORMAT_RGBA_8888);
+    ANativeWindow_setBuffersGeometry(aNativeWindow, m_videoWidth, m_videoHeight, WINDOW_FORMAT_RGBA_8888);
     // 渲染
     ANativeWindow_Buffer m_ANativeWindow_Buffer;
 
@@ -140,7 +190,7 @@ void VideoDecoder::onFrameAvailable(AVFrame *avFrame) {
 
     for (int i = 0; i < m_videoHeight; i++) {
         // 一行一行的拷贝图像数据
-        memcpy(dstBuffer+i*dstLInesize,frameBuffer + i * srcLinesize,srcLinesize);
+        memcpy(dstBuffer + i * dstLInesize, frameBuffer + i * srcLinesize, srcLinesize);
     }
 
     // 解锁当前Window，渲染缓冲区数据
@@ -150,44 +200,44 @@ void VideoDecoder::onFrameAvailable(AVFrame *avFrame) {
 
 void VideoDecoder::release() {
 
-    if(avFrame != NULL){
+    if (avFrame != NULL) {
         av_frame_free(&avFrame);
         avFrame = NULL;
     }
 
-    if(rgbFrame != NULL){
+    if (rgbFrame != NULL) {
         av_frame_free(&rgbFrame);
         rgbFrame = NULL;
     }
 
-    if(avPacket != NULL){
+    if (avPacket != NULL) {
         av_packet_free(&avPacket);
         avPacket = NULL;
     }
 
-    if(frameBuffer != NULL){
+    if (frameBuffer != NULL) {
         av_free(frameBuffer);
         frameBuffer = NULL;
     }
 
-    if(swsContext != NULL){
+    if (swsContext != NULL) {
         sws_freeContext(swsContext);
         swsContext = NULL;
     }
 
-    if(avCodecContext != NULL){
+    if (avCodecContext != NULL) {
         avcodec_close(avCodecContext);
         avcodec_free_context(&avCodecContext);
-        avCodecContext  = NULL;
+        avCodecContext = NULL;
     }
 
-    if(avFormatContext != NULL){
+    if (avFormatContext != NULL) {
         avformat_close_input(&avFormatContext);
         avformat_free_context(avFormatContext);
         avFormatContext = NULL;
     }
 
-    if(aNativeWindow != NULL){
+    if (aNativeWindow != NULL) {
         ANativeWindow_release(aNativeWindow);
         aNativeWindow = NULL;
     }

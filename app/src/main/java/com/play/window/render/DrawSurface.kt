@@ -11,10 +11,12 @@ import android.view.Surface
 import com.play.window.model.DisplayInfo
 import com.play.window.model.GLRect
 import com.play.window.render.gles.EglCore
+import com.play.window.render.gles.EglSurfaceBase
 import com.play.window.render.gles.GlUtil
 import com.play.window.render.gles.OffscreenSurface
 import com.play.window.render.gles.WindowSurface
 import com.play.window.render.model.Stream
+import com.play.window.render.model.SurfaceScene
 import com.play.window.render.model.TextureInfo
 import com.play.window.render.model.Transtion
 import java.util.concurrent.locks.ReentrantLock
@@ -26,8 +28,19 @@ import java.util.concurrent.locks.ReentrantLock
  * 处理Surface的渲染,每一个Surface都有对应的DrawSurface
  *
  * 预览界面不需要传递输出纹理给额外的Surface，所以在单独的线程中执行
+ *
+ *
+ * 下一步对渲染改造的方向：
+ *
+ * 1. 通过添加一个隐藏的渲染层来渲染选中的预览以及外的图层，通过列表来保存输出层
+ * 2. 要区分普通的渲染和预览输出的渲染之间的区别，尽量减少绘制流程
  */
-class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,val ownThread:Boolean = false) : Runnable {
+class DrawSurface(
+    val shareContext: EGLContext?,
+    val shareLock: ReentrantLock,
+    val ownThread: Boolean = false,
+    val name:String = ""
+) : Runnable {
 
     private var mLooper: Looper? = null
     private var drawHandler: Handler? = null
@@ -57,9 +70,20 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
 
     private var isEncode = false
 
+    /**
+     * 存储输出的Surface
+     */
+    private val outPutWSList = mutableListOf<WindowSurface>()
+
+    private var outPutLayer:Boolean = false
+
 
     init {
-        if(ownThread){
+        /**
+         * 因为要有些渲染层需要将自身的纹理输出作为其他渲染层的纹理ID，所以这类渲染层不可以在子线程
+         * 中执行，目前来看只有被输出层才需要独立线程绘制
+         */
+        if (ownThread) {
             Thread(this).apply {
                 name = "Thread-DrawSurface"
             }.start()
@@ -123,6 +147,11 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
         }
     }
 
+
+    private fun addOutSurface(surface: Any) {
+       createWindowSurface(surface, true)
+    }
+
     private var expectTime = 0L
 
     private var cumulative = 0L
@@ -137,7 +166,11 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
             cumulative += (expectTime - currTime)
         }
 
-        drawScene()
+        if(outPutLayer){
+            drawOutPut()
+        } else {
+            drawScene(mWindowSurface)
+        }
 
         val per = (1000 * 1000 * 1000) / frameRate
         expectTime += per
@@ -154,8 +187,18 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
 
     private var lastTime = 0L
 
-    private fun drawScene() {
-        mWindowSurface?.makeCurrent()
+
+
+    private fun drawOutPut(){
+        Log.i("MDY", "drawOutPut: "+outPutWSList.size)
+        outPutWSList.forEach {
+            drawScene(it)
+        }
+    }
+
+
+    private fun drawScene(windowSurface: WindowSurface?) {
+        windowSurface?.makeCurrent()
         if (transtionAnim != null && !transtionAnim!!.isFinish()) {
             drawTranstion()
         } else {
@@ -165,6 +208,12 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
                 lastTime = currTime
             }
             synchronized(renderLock) {
+
+
+                if(name == "Preview-SUrface"){
+
+                    Log.i("MDY", "drawScene: ")
+                }
                 graphProcess?.draw()
             }
         }
@@ -172,8 +221,8 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
         /**
          * 将当前时间戳传入EGL中，当通过Surface获取数据时，可以获取到对应的时间戳pts
          */
-        mWindowSurface?.setPresentationTime(System.currentTimeMillis() * 1000 * 1000)
-        mWindowSurface?.swapBuffers()
+        windowSurface?.setPresentationTime(System.currentTimeMillis() * 1000 * 1000)
+        windowSurface?.swapBuffers()
     }
 
     /**
@@ -198,26 +247,37 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
         transtionAnim?.anim()
     }
 
-    private fun createWindowSurface(surface: Any?) {
-        when (surface) {
+    private fun createWindowSurface(surface: Any?, outPut: Boolean? = false):EglSurfaceBase {
+
+        val eglSurface = when (surface) {
             is Surface -> {
-                Log.i("MDY", "createWindowSurface: Surface")
-                mWindowSurface = WindowSurface(mEglCore, surface, true)
+                WindowSurface(mEglCore, surface, true)
             }
             is SurfaceTexture -> {
-                Log.i("MDY", "createWindowSurface: SurfaceTexture")
-                mWindowSurface = WindowSurface(mEglCore, surface)
+                WindowSurface(mEglCore, surface)
             }
             else -> {
-                mOffscreenSurface = OffscreenSurface(mEglCore, mRendeWidth, mRenderHeight)
+                OffscreenSurface(mEglCore, mRendeWidth, mRenderHeight)
             }
         }
+
+        if (outPut == true) {
+            outPutWSList.add(eglSurface as WindowSurface)
+        } else {
+            if (eglSurface is WindowSurface) {
+                mWindowSurface = eglSurface
+            } else if (eglSurface is OffscreenSurface) {
+                mOffscreenSurface = eglSurface
+            }
+        }
+        return eglSurface
     }
 
     /**
      *  添加渲染表面
+     *  注意：非离屏渲染都需要创建对应的WindowSurface
      */
-    fun addDisplaySurface(surface:Any?) {
+    fun addDisplaySurface(surface: Any?) {
         this.mSurface = surface
         synchronized(lock) {
             if (drawHandler == null) {
@@ -230,30 +290,41 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
 
     }
 
+    fun addScene(scene:SurfaceScene){
+        graphProcess?.addTextureInfo(scene.dataCopy())
+    }
+
+    fun updateScene(scene:SurfaceScene){
+        graphProcess?.updateTextureInfo(scene.dataCopy())
+    }
+
     /**
      * 添加纹理
      */
-    fun addScene(texture: Int, rect: GLRect, isOES: Boolean = true){
+    fun addScene(texture: Int, rect: GLRect, isOES: Boolean = true) {
         synchronized(lock) {
             if (drawHandler == null) {
                 lock.wait()
             }
         }
         drawHandler?.let {
-            it.sendMessage(it.obtainMessage(ADDSCENE, TextureInfo(Stream.STREAM_PREVIEW,texture, rect, isOES)))
+            it.sendMessage(it.obtainMessage(ADDSCENE, TextureInfo(Stream.STREAM_SOURCE, texture, rect, isOES)))
         }
     }
 
-    fun updateScene(texture: Int, rect: GLRect, isOES: Boolean = true){
-        graphProcess?.updateTextureInfo(TextureInfo(Stream.STREAM_PREVIEW,texture, rect, isOES))
+    /**
+     * 更新纹理
+     */
+    fun updateScene(texture: Int, rect: GLRect, isOES: Boolean = true) {
+        graphProcess?.updateTextureInfo(TextureInfo(Stream.STREAM_PREVIEW, texture, rect, isOES))
     }
 
     /**
      * 添加额外的水印
      */
 
-    fun addOverlay(texture: Int, rect: GLRect){
-        graphProcess?.addTextureInfo(TextureInfo(Stream.STREAM_OVERLAY,texture, rect, false))
+    fun addOverlay(texture: Int, rect: GLRect) {
+        graphProcess?.addTextureInfo(TextureInfo(Stream.STREAM_OVERLAY, texture, rect, false))
     }
 
     fun setTranstion(transtion: Transtion) {
@@ -278,14 +349,6 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
         return frameRate
     }
 
-    fun setSurface(surface: Any?) {
-        this.mSurface = surface
-    }
-
-    fun getSurface(): Any? {
-        return mSurface
-    }
-
     fun getSurfaceTexture(): SurfaceTexture {
         return info!!.surfaceTexture!!
     }
@@ -296,6 +359,30 @@ class DrawSurface(val shareContext: EGLContext?, val shareLock: ReentrantLock,va
 
     fun setEncode(isEncode: Boolean) {
         this.isEncode = isEncode
+    }
+
+    /**
+     * 添加输出层的Surface
+     */
+    fun addOutPutSurface(surface: Any) {
+        addOutSurface(surface)
+    }
+
+    /**
+     * 设置是否作为输出层
+     */
+    fun setOutPut(outPut:Boolean){
+        outPutLayer = outPut
+    }
+
+
+    /**
+     * 当前Surface开始绘制
+     */
+    fun sendDraw(){
+        drawHandler?.let {
+            it.sendMessage(it.obtainMessage(DRAWSCENE))
+        }
     }
 
     companion object {

@@ -1,0 +1,17 @@
+
+AVPacket：管理压缩后的媒体数据的结构，本身并不包含压缩的媒体数据，而是通过data指针指向媒体数据。
+这里的媒体数据一般指的是一帧视频数据，或者一帧音频数据，但是也有一些特殊情况，这个 AVPacket
+的 data 是空的，只有 side data 的数据。side data 是一些附加信息。
+
+AVPacket {
+    duration: 代表该帧数据要播放多久，加入时间基是1000，这一帧占了500份，说明当前帧要播放0.5秒。
+    pos : 表示data中数据是从流中哪一位置读取出来的。
+}
+
+AVFrame： 跟AVPacket类似，是一个管理数据的结构体，本身不包含数据只是引用了数据。
+
+AVCodec: 编解码器信息
+
+AVCodecParameters：编解码参数
+
+AVCodecContext：编解码器的上下文

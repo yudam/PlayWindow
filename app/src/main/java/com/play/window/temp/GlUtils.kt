@@ -86,7 +86,9 @@ object GlUtils {
      */
     fun getTexture(bitmap: Bitmap? = null, isOES: Boolean = false): Int {
         val intArray = IntArray(1)
+        checkGlError("getTexture2")
         GLES20.glGenTextures(1, intArray, 0)
+        checkGlError("getTexture1")
         if (isOES) {
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, intArray[0])
             GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES10.GL_TEXTURE_MIN_FILTER, GLES10.GL_NEAREST)

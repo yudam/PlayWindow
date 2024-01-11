@@ -19,13 +19,20 @@ class DisplayInfo(
 
     var surfaceTexture: SurfaceTexture? = null
 
-    var surface: Surface? = null
+    var surface: Any? = null
 
     var mTetxureId: Int? = null
 
     var mvpMatrix: FloatArray? = null
 
-    val surfaceId: Int = SURFACE_ID++
+    var surfaceId: Int = SURFACE_ID++
+
+
+    var isOutPut:Boolean = false
+
+
+    fun isPreView() = url == null
+
 
     override fun toString(): String {
         return "surfaceTexture :$surfaceTexture mTetxureId:  $mTetxureId"

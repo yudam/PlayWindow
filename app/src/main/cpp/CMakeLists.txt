@@ -9,15 +9,22 @@ cmake_minimum_required(VERSION 3.18.1)
 
 project("window")
 
+add_compile_options(-g)
+
 # 设置so库生成的路径
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/${ANDROID_ABI})
 
+# 加入rtmp库
+add_subdirectory(${CMAKE_SOURCE_DIR}/rtmp/)
 
 # 设置头文件搜索路径，这样可以直接添加头文件，而不需要加上头文件的路径
 include_directories(${CMAKE_SOURCE_DIR}/include/)
 include_directories(${CMAKE_SOURCE_DIR}/thirdparty/ffmpeg/)
 include_directories(${CMAKE_SOURCE_DIR}/thirdparty/ffmpeg/include/)
 include_directories(${CMAKE_SOURCE_DIR}/thirdparty/ffmpeg/libyuv/)
+include_directories(${CMAKE_SOURCE_DIR}/rtmp/)
+include_directories(${CMAKE_SOURCE_DIR}/base/)
+
 
 # 输出msg
 
@@ -51,6 +58,7 @@ message("FFMPEG_libavcodec:"+${FFMPEG_libavcodec})
 # 设置cpp文件的位置 ，方便后面添加
 
 file(GLOB FILE_C "${PROJECT_SOURCE_DIR}/src/*.cpp")
+file(GLOB BASE_C "${PROJECT_SOURCE_DIR}/base/*.cpp")
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -68,6 +76,7 @@ add_library( # Sets the name of the library.
         RegisterImpl.cpp
         # 要编译的c/c++文件
         ${FILE_C}
+        ${BASE_C}
         )
 
 # Searches for a specified prebuilt library and stores the path as a
@@ -93,6 +102,8 @@ target_link_libraries( # Specifies the target library.
         # 不加入下面两个，直接编译报错，第三方库找不到，原因未知
         z
         android
+
+        rtmp
 
         # 链接ffmpeg相关的库
         ${FFMPEG_libavfilter}

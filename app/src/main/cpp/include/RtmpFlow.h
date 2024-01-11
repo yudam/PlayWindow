@@ -27,6 +27,7 @@ struct MediaPacket {
     int csd0Size;
     int csd1Size;
     bool  isCsd;
+    int keyFrame;
 };
 
 class RtmpFlow {

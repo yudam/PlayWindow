@@ -3,3 +3,14 @@
 //
 
 #include "FFmpegCmd.h"
+#include <thread>
+
+
+void create_thread(){
+
+    std::thread my_thread();
+
+
+
+
+}

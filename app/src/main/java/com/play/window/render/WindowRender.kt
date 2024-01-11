@@ -34,6 +34,10 @@ import java.util.concurrent.locks.ReentrantLock
  */
 class WindowRender() {
 
+    companion object{
+        val centreSurfaceId = -6
+    }
+
     private var mEglCore: EglCore? = null
     private var windowHandler: Handler? = null
     private val surfaceList = mutableListOf<SurfaceParam>()
@@ -44,10 +48,16 @@ class WindowRender() {
 
     private var directorSurfaceId = -12
 
+    private var outPutSurfaceId = -13
+
+
+    private val backSurfaceId = -101
+
     private val shareLock = ReentrantLock()
 
     private val sizeMap = mutableMapOf<Int, Size>()
 
+    private val mSize = Size(1920, 1080)
 
     init {
         mEglCore = EglCore()
@@ -65,82 +75,115 @@ class WindowRender() {
 
     }
 
+    /**
+     * 添加默认的渲染源
+     */
+    fun addOriginalSurface(){
+        val width = mSize.width.toFloat()
+        val height = mSize.height.toFloat()
+        val glRect = GLRect(width/2,height/2,width,height,width,height)
+        addDisplaySurface(DisplayInfo(glRect,30).apply { surfaceId =  centreSurfaceId})
+    }
+
+
+    /**
+     * 添加从编码器中获取的Surface，接收预览的画面
+     */
+    fun setEncoderSurface(encoderSurface: Any?, rect: GLRect) {
+        val info = DisplayInfo(rect,30).apply {
+            surface = encoderSurface
+            isOutPut = true
+        }
+        addDisplaySurface(info)
+    }
 
     /**
      * 添加SurfaceTexture
      */
     fun addDisplaySurface(info: DisplayInfo) {
-        val drawSurface = DrawSurface(mEglCore?.sharedContext, shareLock).apply {
-            setRenderSize(info.rect.pw.toInt(), info.rect.ph.toInt())
-            setFps(info.fps)
+        if(info.isOutPut){
+            val backDraw = surfaceMap[centreSurfaceId]
+            info.surfaceTexture?.let {
+                backDraw?.addOutPutSurface(it)
+            }
+
+            info.surface?.let {
+                backDraw?.addOutPutSurface(it)
+            }
+        } else {
+            val surfaceName = if(info.isPreView())"Preview-SUrface" else ""
+            val drawSurface = DrawSurface(mEglCore?.sharedContext, shareLock, name = surfaceName).apply {
+                setRenderSize(info.rect.pw.toInt(), info.rect.ph.toInt())
+                setFps(info.fps)
+            }
+            drawSurface.scheduleEvent(mEglCore!!)
+            drawSurface.addDisplaySurface(info.surfaceTexture)
+            drawSurface.setOutPut(info.surfaceId == centreSurfaceId)
+            drawSurface.sendDraw()
+            surfaceMap[info.surfaceId] = drawSurface
+            Log.i("SMP", "info.surfaceId: "+info.surfaceId)
+            if (info.url != null) {
+                val param = createTextureInfo(info)
+                VideoParse.addSurfaceParam(info.url!!, param)
+                openVideo(info, param.surfaceTexture!!)
+            }
         }
-        drawSurface.scheduleEvent(mEglCore!!)
-        drawSurface.addDisplaySurface(info.surfaceTexture)
-        surfaceMap[info.surfaceId] = drawSurface
-
-        if (info.url != null) {
-            val param = createTextureInfo(info)
-            VideoParse.addSurfaceParam(info.url!!, param)
-            openVideo(info, param.surfaceTexture!!)
-        }
-
-
-        // previewSurfaceId = info.surfaceId
     }
+
+    /**
+     * 添加纹理
+     */
+    fun addScene(surfaceId: Int, targetId: Int) {
+        val currentDraw = surfaceMap[surfaceId]
+        val targetDraw = surfaceMap[targetId]
+        val size = sizeMap[targetId] ?: mSize
+        val currentInfo = currentDraw?.getTextureInfo()
+        val targetInfo = targetDraw?.getTextureInfo() ?: return
+        val rect = OpenglUtil.createDefaultRect(mSize)
+        OpenglUtil.scaleVideoRect(rect, size.width, size.height)
+        currentDraw?.addScene(targetInfo.texture, rect, targetInfo.isOES)
+//        if (currentInfo == null) {
+//            currentDraw?.updateScene(targetInfo.texture, rect, targetInfo.isOES)
+//        } else {
+//            currentDraw.setTranstion(Transtion(currentInfo.clone(rect), targetInfo.clone(rect), false))
+//            currentDraw.updateScene(targetInfo.texture, rect, targetInfo.isOES)
+//        }
+    }
+
 
 
     /**
      * 设置、更新预览界面
      */
-    fun updateSurface(surfaceTexture: Any,surfaceId:Int,rect: GLRect) {
-
+    fun updateSurface(surfaceTexture: Any, surfaceId: Int, rect: GLRect) {
         val preInfo = surfaceMap[previewSurfaceId]?.getTextureInfo()
         previewSurfaceId = surfaceId
         val drawSurface = surfaceMap[previewSurfaceId] ?: return
         val renderInfo = drawSurface.getTextureInfo() ?: return
         val encoderView = surfaceMap[encoderSurfaceId]
-        if(encoderView == drawSurface) return
-        if(encoderView != null){
+        if (encoderView == drawSurface) return
+        if (encoderView != null) {
             val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
             OpenglUtil.scaleVideoRect(rect, size.width, size.height)
-            if(preInfo == null) {
+            if (preInfo == null) {
                 encoderView.updateScene(renderInfo.texture, rect, renderInfo.isOES)
             } else {
-                encoderView.setTranstion(Transtion(preInfo.clone(rect),renderInfo.clone(rect),false))
+                encoderView.setTranstion(Transtion(preInfo.clone(rect), renderInfo.clone(rect), false))
                 encoderView.updateScene(renderInfo.texture, rect, renderInfo.isOES)
             }
         } else {
-            val encoderSurface = DrawSurface(mEglCore?.sharedContext, shareLock,true).apply {
+            val encoderSurface = DrawSurface(mEglCore?.sharedContext, shareLock).apply {
                 setRenderSize(rect.pw.toInt(), rect.ph.toInt())
                 setFps(drawSurface.getFps())
                 setEncode(true)
             }
+            encoderSurface.scheduleEvent(mEglCore!!)
             encoderSurface.addDisplaySurface(surfaceTexture)
             val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
             OpenglUtil.scaleVideoRect(rect, size.width, size.height)
             encoderSurface.addScene(renderInfo.texture, rect, renderInfo.isOES)
             surfaceMap[encoderSurfaceId] = encoderSurface
         }
-    }
-
-    /**
-     * 添加编码的Surface，这里的surface推荐是输出编码的surface，通过获取预览界面的输出纹理
-     * 添加到编码对应的DrawSurface中，直接绘制然后编码
-     */
-    fun setEncoderSurface(surface: Any?, rect: GLRect) {
-        val drawSurface = surfaceMap[previewSurfaceId] ?: return
-        val renderInfo = drawSurface.getTextureInfo() ?: return
-        val encoderSurface = DrawSurface(mEglCore?.sharedContext, shareLock).apply {
-            setRenderSize(rect.pw.toInt(), rect.ph.toInt())
-            setFps(drawSurface.getFps())
-            setEncode(true)
-        }
-        encoderSurface.scheduleEvent(mEglCore!!)
-        encoderSurface.addDisplaySurface(surface)
-        val size = sizeMap[previewSurfaceId] ?: Size(1920, 1080)
-        OpenglUtil.scaleVideoRect(rect, size.width, size.height)
-        encoderSurface.addScene(renderInfo.texture, rect, renderInfo.isOES)
-        surfaceMap[encoderSurfaceId] = encoderSurface
     }
 
 
@@ -169,7 +212,7 @@ class WindowRender() {
     }
 
     /**
-     * 当同步Surfacetexture中画面到绑定的纹理时，有可能其他啊的Surface正在使用当前纹理进行绘制，
+     * 当同步Surfacetexture中画面到绑定的纹理时，有可能其他的Surface正在使用当前纹理进行绘制，
      * 可能会出现冲突，需要加锁
      */
     private fun createTextureInfo(info: DisplayInfo): SurfaceParam {

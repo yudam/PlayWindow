@@ -12,4 +12,6 @@ class PreviewInfo(val surfaceTexture: SurfaceTexture,
 
     var previewSurfaceId: Int = 0
 
+    val currSurfaceId:Int = 0
+
 }

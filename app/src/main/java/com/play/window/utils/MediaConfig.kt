@@ -1,6 +1,8 @@
 package com.play.window.utils
 
 import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.view.Surface
 
 
 /**
@@ -10,17 +12,25 @@ import android.media.MediaCodecInfo
  */
 class MediaConfig {
 
-    var publishUrl:String = "rtmp://172.16.0.97:1935/live/room"
+    //192.168.20.20
+    var publishUrl: String = "rtmp://192.168.30.120:1935/live/room"
 
-    var videoBitRate = 1920 * 1080  * 3
+    var videoBitRate = 1920 * 1080 * 3
 
-    var videoWidth = 1920
+    var videoWidth = 3840
 
-    var videoHeight = 1080
+    var videoHeight = 2160
 
     var videoFrameRate = 20
 
     var videoBitRateModel = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
 
     var i_frame_interval = 2
+
+    var mimeType: String = MediaFormat.MIMETYPE_VIDEO_AVC
+
+
+    var openQP: Boolean = false
+    var minIQP = 1
+    var maxIQP = 51
 }

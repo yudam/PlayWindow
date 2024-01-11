@@ -34,6 +34,10 @@ class GraphProcess(val shareLock: ReentrantLock) {
         unitProcess?.setRenderSize(width, height)
     }
 
+    fun setSurfaceSize(width: Int,height: Int){
+
+    }
+
     fun addTextureInfo(info: TextureInfo) {
         if(useFBO){
             if (unitProcess == null) {
@@ -89,6 +93,7 @@ class GraphProcess(val shareLock: ReentrantLock) {
             }
             outProcess?.addTextureInfo(outPutInfo)
 
+            // 输出纹理
             outProcess?.draw()
         } finally {
             shareLock.unlock()

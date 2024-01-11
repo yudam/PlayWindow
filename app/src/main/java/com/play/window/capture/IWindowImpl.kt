@@ -51,38 +51,36 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
     private val lock = Object()
 
     private var record: RecordMedia? = null
-    private val recordUtil:RecordUtil = RecordUtil()
+
 
     init {
         start()
-       // recordUtil.start()
         AudioGet.registerListener { buffer, size ->
             aacEncoder?.frameBuffer(buffer)
         }
     }
 
-    private var sendCsd = false
-
     private val listener = object :IEncoderDataListener{
         override fun notifyAvailableData(packet: MediaPacket) {
             Log.i(WindowApp.TAG, "notifyAvailableData: "+packet.data?.remaining()+"  pts: "+packet.pts+"  isVideo:"+packet.isVideo)
-            //record?.addPacket(packet)
 
-            if(packet.isVideo && sendCsd){
+            if(record != null){
+                record?.addPacket(packet)
+            } else {
                 BaseNative.sendPacket(packet)
             }
         }
 
         override fun notifyMediaFormat(format: MediaFormat, isVideo: Boolean) {
-           // record?.addTrack(format,!isVideo)
+            record?.addTrack(format,!isVideo)
         }
 
         override fun notifyHeaderData(packet: MediaPacket) {
             Log.i("JNILOG", "sps: "+packet.csd0?.remaining()+
                 "  pps:"+packet.csd1?.remaining()+"  pts:" + packet.pts)
-           // record?.addPacket(packet)
-            if(packet.isVideo){
-                sendCsd = true
+            if(record != null){
+                record?.addPacket(packet)
+            } else {
                 BaseNative.sendPacket(packet)
             }
         }
@@ -100,13 +98,23 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                 override fun handleMessage(msg: Message) {
                     when (msg.what) {
 
+                        OutPutSurface -> {
+                          windowRender?.addOriginalSurface()
+                        }
+
+                        AddScene -> {
+                            val surfaceId = msg.obj as Int
+                            windowRender?.addScene(WindowRender.centreSurfaceId,surfaceId)
+
+                        }
                         PREVIEWSURFACE -> {
-                            val info = msg.obj as PreviewInfo
-                            windowRender?.updateSurface( info.surfaceTexture,info.previewSurfaceId,info.glRect)
+                            val info = msg.obj as DisplayInfo
+                            windowRender?.addDisplaySurface(info)
                         }
 
                         STARTPUBLISH -> {
                             Log.i(WindowApp.TAG, "STARTPUBLISH: ")
+
                             val config = msg.obj as MediaConfig
                             BaseNative.initPublish(config.publishUrl,config.videoBitRate,
                                 config.videoFrameRate,config.videoWidth,config.videoHeight)
@@ -115,10 +123,15 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
                                 setListener(listener)
                                 windowRender?.setEncoderSurface( getEncoderSurface(),getRect())
                             }
+
+//                            aacEncoder = AACEncoder(getAudioPath())
+//                            aacEncoder?.setListener(listener)
+//                            aacEncoder?.start()
                         }
 
                         STOPPUBLISH -> {
                             h264Encoder?.stopEncoder()
+                            BaseNative.release()
                         }
 
                         RECORDAV -> {
@@ -164,7 +177,31 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         }
     }
 
-    override fun previewSurface(info: PreviewInfo) {
+
+    fun addOutPut(){
+        synchronized(lock) {
+            if (windowHandler == null) {
+                lock.wait()
+            }
+            val message = Message().apply {
+                what = OutPutSurface
+            }
+            windowHandler?.sendMessage(message)
+        }
+    }
+
+    /**
+     * 添加流场景到Output中
+     */
+    fun addScene(surfaceId:Int){
+        val message =  Message().apply {
+            obj = surfaceId
+            what = AddScene
+        }
+        windowHandler?.sendMessage(message)
+    }
+
+    override fun previewSurface(info : DisplayInfo) {
         val message =  Message().apply {
             obj = info
             what = PREVIEWSURFACE
@@ -258,5 +295,8 @@ class IWindowImpl() : HandlerThread("IWindowImpl"), IWindow {
         private const val RECORDAV = 0x17
         private const val STOPRECOR = 0x18
         private const val PREVIEWSURFACE = 0x19
+
+        private const val OutPutSurface = 1
+        private const val AddScene = 2
     }
 }

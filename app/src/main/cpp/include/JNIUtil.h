@@ -19,4 +19,6 @@ public:
     jfieldID java_bufferSize = nullptr;
     jfieldID java_csd0Size = nullptr;
     jfieldID java_csd1Size = nullptr;
+
+    jfieldID java_key_frame = nullptr;
 };

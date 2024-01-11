@@ -8,6 +8,7 @@
 
 
 
+
 MediaMuxer的使用需要注意的部分：
 
  * MediaMuxer混音时，需要先写入视频的I帧，在写入音频否则不会生成对应的mp4文件
@@ -39,4 +40,14 @@ MediaMuxer的使用需要注意的部分：
 
 5.
 
+6.
+
+Android中窗口的管理流程：
+1. 首先获取WindowManager的实现类WindoeManagerImpl，内部通过WindowManagerGlobal来缓存相关View并创建、
+   对应的ViewRootImpl。
+2. ViewRootImpl的setView方法会被调用，内部调用创建的mWindowSession实例的addToDisplay方法通过Binder
+   执行到服务端的Session中。
+3. Session中获取AMS的代理类操作addWindow函数，创建WindowState对象
+4.
+5.
 6.

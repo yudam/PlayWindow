@@ -1,0 +1,14 @@
+Zygote的作用？
+
+init进程调用app_main.cpp文件，创建AppRuntime对象，并调用start函数来执行Java层的ZygoteInit类。AppRuntime
+继承自AndroidRuntime，所以执行到AndroidRuntime的start函数，并执行以下操作：
+
+   1. 创建虚拟机
+   2. 注册JNI相关函数
+   3. 通过JNI回调到Java层ZygoteInit的main函数
+
+执行到ZygoteInit的main函数主要做了以下几个操作：
+   1. preload预加载资源
+   2. 创建ZygoteServer服务，这个一个Socket服务主要用于进程间通信
+   3. forkSystemServer创建systemServer子进程，SystemServer进程负责启动Android的核心服务
+   4. zygoteServer.runSelectLoop执行该循环，等到AMS的进程消息

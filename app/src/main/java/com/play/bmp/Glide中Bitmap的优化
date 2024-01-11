@@ -1,0 +1,24 @@
+根据系统的版本，Glide中Bitmap的缓存分为两种策略：
+
+```
+    final LruPoolStrategy strategy;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      strategy = new SizeConfigStrategy();
+    } else {
+      strategy = new AttributeStrategy();
+    }
+```
+
+1. 小于4.4版本之前
+
+根据Bitmap的宽高和Config来生成一个Key
+
+
+2. 大于等于4.4版本之后
+
+根据Bitmap的占用大小来缓存，这里Bitmap的大小通过getAllocationByteCount获取
+```
+bitmap.getAllocationByteCount()
+```
+获取Bitmap时通过宽高和Config来计算需要的大小，然后查找对应的Bitmap，这里通过一个TreeMap来缓存
+指定Config的Bitmap

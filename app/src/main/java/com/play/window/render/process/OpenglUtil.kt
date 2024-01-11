@@ -1,5 +1,6 @@
 package com.play.window.render.process
 
+import android.util.Size
 import com.play.window.model.GLRect
 
 /**
@@ -82,5 +83,15 @@ object OpenglUtil {
 
         }
         return glRect
+    }
+
+
+    /**
+     *   创建默认的GLRect
+     */
+    fun createDefaultRect(size: Size): GLRect {
+        val width = size.width.toFloat()
+        val height = size.height.toFloat()
+        return GLRect(width / 2, height / 2, width, height, width, height)
     }
 }

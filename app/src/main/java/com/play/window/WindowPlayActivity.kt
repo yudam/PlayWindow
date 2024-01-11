@@ -11,7 +11,9 @@ import android.view.TextureView
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.AndroidViewModel
 import com.play.window.capture.AudioNativeEncoder
 import com.play.window.capture.IWindowImpl
 import com.play.window.capture.VideoPlayer
@@ -35,11 +37,11 @@ class WindowPlayActivity : AppCompatActivity() {
 
     private var isRecord: Boolean = false
 
+    private var isPublish:Boolean = false
+
     private val streamInfo = mutableListOf<DisplayInfo>()
 
     private var recordAudio: AudioNativeEncoder? = null
-
-    private var previewInfo :PreviewInfo? = null
 
 
     inner class PlaySurfaceListener(val view: View, var url: String?) : TextureView.SurfaceTextureListener {
@@ -49,7 +51,7 @@ class WindowPlayActivity : AppCompatActivity() {
             val rect = GLRect(centerX, centerY, width.toFloat(), height.toFloat(), width.toFloat(), height.toFloat())
 
             if (url == null) {
-                previewInfo = PreviewInfo(surface,rect)
+                initPlayer(surface,rect,null)
             } else {
                 initPlayer(surface, rect, url!!)
             }
@@ -71,23 +73,33 @@ class WindowPlayActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityWindowPlayBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        initStream()
         binding.playVideo.surfaceTextureListener = PlaySurfaceListener(binding.playVideo,null)
-        binding.tvTopLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvTopLeft, videoPath)
+        binding.tvTopLeft.surfaceTextureListener = PlaySurfaceListener(binding.tvTopLeft, mVideoPath2)
         binding.tvTopRight.surfaceTextureListener = PlaySurfaceListener(binding.tvTopRight, mVideoPath1)
 
         binding.btnPlay.setOnClickListener {
             if (isRecord) {
                 isRecord = false
+                showToast("停止录制")
                 window?.stopRecord()
             } else {
                 isRecord = true
+                showToast("开始录制")
                 window?.startRecord(getVideoPath())
             }
         }
 
         binding.btnLive.setOnClickListener {
-            window?.startPublish()
+            if(!isPublish){
+                isPublish = true
+                showToast("开始推流")
+                window?.startPublish()
+            } else {
+                isPublish = false
+                showToast("结束推流")
+                window?.stopPublish()
+            }
         }
 
         binding.btnRecordAudio.setOnClickListener {
@@ -103,17 +115,13 @@ class WindowPlayActivity : AppCompatActivity() {
         }
 
         binding.tvTopLeft.setOnClickListener {
-            previewInfo?.let {
-                it.previewSurfaceId = streamInfo[0].surfaceId
-                window?.previewSurface(it)
-            }
+            val previewSurfaceId = streamInfo[1].surfaceId
+            window?.addScene(previewSurfaceId)
         }
 
         binding.tvTopRight.setOnClickListener {
-            previewInfo?.let {
-                it.previewSurfaceId = streamInfo[1].surfaceId
-                window?.previewSurface(it)
-            }
+            val previewSurfaceId = streamInfo[2].surfaceId
+            window?.addScene(previewSurfaceId)
         }
 
         ActivityCompat.requestPermissions(this,
@@ -125,11 +133,19 @@ class WindowPlayActivity : AppCompatActivity() {
     }
 
 
-    private fun initPlayer(surfaceTexture: SurfaceTexture, rect: GLRect, url: String) {
 
-        val info = DisplayInfo(rect, 60).also {
+    private fun initStream(){
+        window = IWindowImpl()
+        window?.addOutPut()
+    }
+
+
+    private fun initPlayer(surfaceTexture: SurfaceTexture, rect: GLRect, url: String?) {
+
+        val info = DisplayInfo(rect, 30).also {
             it.url = url
             it.surfaceTexture = surfaceTexture
+            it.isOutPut = url == null
         }
 
         if (window == null) {
@@ -137,6 +153,7 @@ class WindowPlayActivity : AppCompatActivity() {
         }
         window?.playVideo(info)
         streamInfo.add(info)
+        Log.i("SMP", "initPlayer.surfaceId: "+info.surfaceId)
     }
 
 

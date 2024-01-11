@@ -1,0 +1,24 @@
+1. AAC音频编码时，在MediaCodec.INFO_OUTPUT_FORMAT_CHANGED下获取Mediaformat给MediaMuxer使用，
+   出现stop崩溃问题
+
+   问题在于我们从MediaFormat中获取了adts的Buffer，并进行了改变 ，导致MediaMuxer那边没办法获取一些
+   音频信息。解决办法是通过复制adts，保持Mediaformat中adts不改变。
+
+
+2. 目前发现MediaMuxer合成MP4时会出现音频杂音的问题
+
+    问题在于两路音频同时传过来导致的杂音，录制时保证只存在一路音频，否则可以通过混音来实现
+
+
+
+音视频相关的基础知识点：
+
+1. 视频分辨率与对应的清晰度
+
+标清：480x800
+普通高清：720x1280 720P
+高清：1920x1080 1080P
+2K：2048*1024
+超高清 4K：3840x2160
+
+2. h265比h264多了一个VPS，VPS是视频参数集。h265码流最开始永远是VPS，SPS,PPS，可能含有SEI，后面接着是I帧P帧数据

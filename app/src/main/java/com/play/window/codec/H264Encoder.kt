@@ -24,6 +24,9 @@ import java.nio.ByteBuffer
  * MediaCodec从输出队列中读取的ByteBuffer以00000001开始。
  *
  * H264编码，
+ *
+ *
+ * 4K视频指的是分辨率为3840 * 2160的超高清4K视频
  */
 class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
 
@@ -31,6 +34,11 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
      * H264压缩格式的写法
      */
     private val mMimeType = "video/avc"
+
+    /**
+     * H265压缩格式的写法是 video/hevc
+     */
+    private val mH265 = MediaFormat.MIMETYPE_VIDEO_HEVC
 
     private lateinit var mMediaCodec: MediaCodec
 
@@ -128,18 +136,20 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                 } else if ((mBufferInfo.flags and MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) != 0) {
                     Log.i(TAG, "INFO_OUTPUT_FORMAT_CHANGED: ")
                     dataListener?.notifyMediaFormat(mMediaCodec.outputFormat, true)
-                    // 获取sps和pps
+
+                    // 获取sps和pps，如果是H265编码的话，csd-0不知道是不是vps
                     val sps = mMediaCodec.outputFormat.getByteBuffer("csd-0")
                     val pps = mMediaCodec.outputFormat.getByteBuffer("csd-1")
-                    Log.i(TAG, "sps-----------: " + Utils.bytesToHex(sps?.array()))
+                    Log.i("MDY", "sps-----------: " + Utils.bytesToHex(sps?.array()))
                     sps?.array()?.forEachIndexed { index, byte ->
-                        Log.i(TAG, "index: " + index + "   byte: " + byte)
+                        Log.i("MDY", "index: " + index + "   byte: " + byte)
                     }
-                    Log.i(TAG, "pps-----------: " + Utils.bytesToHex(pps?.array()))
+                    Log.i("MDY", "pps-----------: " + Utils.bytesToHex(pps?.array()))
                     pps?.array()?.forEachIndexed { index, byte ->
-                        Log.i(TAG, "index: " + index + "   byte: " + byte)
+                        Log.i("MDY", "index: " + index + "   byte: " + byte)
                     }
 
+                    Log.i("MDY", "sps: "+sps?.array()?.size+"   pps :" +pps?.array()?.size)
 
                     val csd_0 = ByteBuffer.allocateDirect(sps?.capacity()?:1)
                     csd_0.put(sps)
@@ -164,9 +174,12 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
                     dataListener?.notifyHeaderData(packet)
 
                 } else {
+
+                    var iFrame = 0
                     // 当前缓冲区是关键帧信息
                     if ((mBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
                         Log.i(TAG, "BUFFER_FLAG_KEY_FRAME: ")
+                        iFrame = 1
                     }
                     val videoArray = ByteArray(mBufferInfo.size)
                     byteBuffer?.let {
@@ -195,6 +208,8 @@ class H264Encoder(val config: MediaConfig) : Thread("H264Encoder-Thread") {
 
                         csd0 = ByteBuffer.allocateDirect(1)
                         csd1 = ByteBuffer.allocateDirect(1)
+
+                        keyFrame = iFrame
                     }
                     dataListener?.notifyAvailableData(pkt)
                 }
